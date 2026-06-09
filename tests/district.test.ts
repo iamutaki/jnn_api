@@ -32,8 +32,10 @@ function fetchApp(path: string, options: {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (options.token) headers['Authorization'] = `Bearer ${options.token}`
 
+  const fullPath = path.startsWith('/') ? `/v1${path}` : `/v1/${path}`
+
   return SELF.fetch(
-    new Request(`https://test-host${path}`, {
+    new Request(`https://test-host${fullPath}`, {
       method: options.method ?? 'GET',
       headers,
       body: options.rawBody ?? (options.body ? JSON.stringify(options.body) : undefined),

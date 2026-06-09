@@ -16,9 +16,38 @@ import { profileRoutes } from './features/profile/routes/profile.routes'
 const app = new Hono<Env>()
 
 // ─── Global Middleware ────────────────────────────────────────────────
-app.use('*', cors())        // Enable CORS for mobile client
-app.use('*', logger())      // Request logging
-app.use('*', prettyJSON())  // Pretty JSON in dev
+app.use('*', cors())
+app.use('*', logger())
+app.use('*', prettyJSON())
+
+// // ─── API v2 (example) ──────────────────────────────────────────────────
+// // 1. Buat sub-router baru
+// const v2 = new Hono<Env>()
+//
+// // 2. Import routes v2 (misal dari features/<feature>/routes/<feature>.v2.routes.ts)
+// import { authV2Routes } from './features/auth/routes/auth.v2.routes'
+// import { userV2Routes } from './features/user/routes/user.v2.routes'
+//
+// // 3. Daftarkan route — bebas, tidak harus 1:1 dengan v1
+// v2.route('/auth', authV2Routes)
+// v2.route('/users', userV2Routes)         // misal jadi plural
+//
+// // 4. Mount ke /v2
+// // app.route('/v2', v2)
+//
+// // ─── API v1 ──────────────────────────────────────────────────────────
+const v1 = new Hono<Env>()
+
+v1.route('/auth', authRoutes)
+v1.route('/dummy', dummyRoutes)
+v1.route('/district', districtRoutes)
+v1.route('/sub-district', subDistrictRoutes)
+v1.route('/role', roleRoutes)
+v1.route('/user', userRoutes)
+v1.route('/user-role', userRoleRoutes)
+v1.route('/profile', profileRoutes)
+
+app.route('/v1', v1)
 
 // ─── Health Check ─────────────────────────────────────────────────────
 app.get('/', (c) => {
@@ -28,27 +57,17 @@ app.get('/', (c) => {
     environment: c.env.ENVIRONMENT,
     status: 'running',
     endpoints: {
-      auth: '/auth/login',
-      dummy: '/dummy',
-      district: '/district',
-      sub_district: '/sub-district',
-      role: '/role',
-      user: '/user',
-      user_role: '/user-role',
-      profile: '/profile',
+      auth: '/v1/auth/login',
+      dummy: '/v1/dummy',
+      district: '/v1/district',
+      sub_district: '/v1/sub-district',
+      role: '/v1/role',
+      user: '/v1/user',
+      user_role: '/v1/user-role',
+      profile: '/v1/profile',
     },
   })
 })
-
-// ─── Feature Routes ───────────────────────────────────────────────────
-app.route('/auth', authRoutes)
-app.route('/dummy', dummyRoutes)
-app.route('/district', districtRoutes)
-app.route('/sub-district', subDistrictRoutes)
-app.route('/role', roleRoutes)
-app.route('/user', userRoutes)
-app.route('/user-role', userRoleRoutes)
-app.route('/profile', profileRoutes)
 
 // ─── 404 Fallback ─────────────────────────────────────────────────────
 app.notFound((c) => {
@@ -61,5 +80,4 @@ app.onError((err, c) => {
   return response.error(c, 'Internal server error', 500, 'INTERNAL_ERROR')
 })
 
-// Cloudflare Workers export
 export default app

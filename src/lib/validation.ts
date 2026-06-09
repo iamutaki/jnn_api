@@ -2,6 +2,7 @@
  * Simple validation utility for request bodies.
  *
  * Validates fields against rules and returns specific error messages.
+ * Auto-trims all string fields in-place before validation.
  * Designed to be lightweight — no external deps needed for prototype.
  */
 
@@ -19,23 +20,31 @@ interface ValidationSchema {
 export interface ValidationResult {
   valid: boolean
   errors: string[]
+  body: Record<string, unknown>
 }
 
 /**
- * Validate a body object against a schema.
+ * Trim all string fields in-place, then validate against schema.
  *
- * Returns { valid: true, errors: [] } if all good,
- * or { valid: false, errors: ['field x is required', ...] } if not.
+ * Returns { valid, errors, body } where body is the trimmed version.
  */
 export function validate(body: Record<string, unknown> | null | undefined, schema: ValidationSchema): ValidationResult {
+  // Handle null/undefined body
   if (!body || typeof body !== 'object') {
-    // All required fields are missing
     const requiredFields = Object.entries(schema)
       .filter(([, rule]) => rule.required)
       .map(([field]) => field)
     return {
       valid: false,
       errors: requiredFields.map((f) => `${f} is required`),
+      body: {},
+    }
+  }
+
+  // Trim all string fields in-place
+  for (const key of Object.keys(body)) {
+    if (typeof body[key] === 'string') {
+      body[key] = (body[key] as string).trim()
     }
   }
 
@@ -44,7 +53,7 @@ export function validate(body: Record<string, unknown> | null | undefined, schem
   for (const [field, rule] of Object.entries(schema)) {
     const value = body[field]
 
-    // Required check
+    // Required check (after trim, so "   " becomes "")
     if (rule.required && (value === undefined || value === null || value === '')) {
       errors.push(`${field} is required`)
       continue
@@ -73,5 +82,6 @@ export function validate(body: Record<string, unknown> | null | undefined, schem
   return {
     valid: errors.length === 0,
     errors,
+    body,
   }
 }

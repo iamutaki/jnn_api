@@ -27,6 +27,16 @@ export const districtService = {
     return db.prepare('SELECT * FROM districts WHERE id = ?').bind(id).first<District>()
   },
 
+  /** Check if a name already exists. Optionally exclude an id (for update self-exclusion). */
+  _nameExists: async (db: D1Database, name: string, excludeId?: string): Promise<boolean> => {
+    if (excludeId) {
+      const row = await db.prepare('SELECT 1 FROM districts WHERE name = ? AND id != ?').bind(name, excludeId).first()
+      return row !== null
+    }
+    const row = await db.prepare('SELECT 1 FROM districts WHERE name = ?').bind(name).first()
+    return row !== null
+  },
+
   create: async (db: D1Database, body: CreateDistrictRequest): Promise<void> => {
     const id = ulid()
     await db

@@ -45,7 +45,13 @@ export const districtController = {
       return response.error(c, result.errors.join(', '), 400, 'DISTRICT_VALIDATION_ERROR')
     }
 
-    await districtService.create(c.env.DB, body as any)
+    // Check name uniqueness
+    const nameExists = await districtService._nameExists(c.env.DB, result.body.name as string)
+    if (nameExists) {
+      return response.error(c, 'Name already exists', 409, 'DISTRICT_NAME_EXISTS')
+    }
+
+    await districtService.create(c.env.DB, result.body as any)
     return response.noContent(c, 201)
   },
 
@@ -60,9 +66,17 @@ export const districtController = {
       return response.error(c, result.errors.join(', '), 400, 'DISTRICT_VALIDATION_ERROR')
     }
 
-    const item = await districtService.update(c.env.DB, id, body as any)
+    // Check name uniqueness (exclude self)
+    if (result.body.name !== undefined) {
+      const nameExists = await districtService._nameExists(c.env.DB, result.body.name as string, id)
+      if (nameExists) {
+        return response.error(c, 'Name already exists', 409, 'DISTRICT_NAME_EXISTS')
+      }
+    }
 
-    if (!item) {
+    const updated = await districtService.update(c.env.DB, id, result.body as any)
+
+    if (!updated) {
       return response.error(c, 'District not found', 404, 'DISTRICT_NOT_FOUND')
     }
 

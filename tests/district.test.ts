@@ -16,11 +16,11 @@ const JWT_SECRET = typedEnv.JWT_SECRET
 let migrations: Awaited<ReturnType<typeof readD1Migrations>>
 
 async function getToken(secret = JWT_SECRET) {
-  return jwtUtil.signAccess({ sub: 'test-user' }, secret)
+  return jwtUtil.signAccess({ sub: 'test-user', userId: 'test-user-id' }, secret)
 }
 
 async function getExpiredToken(secret = JWT_SECRET) {
-  return jwtUtil.encrypt(secret, { sub: 'test-user', exp: '2020-01-01T00:00:00Z' }, { addExp: false, addIat: false })
+  return jwtUtil.encrypt(secret, { sub: 'test-user', userId: 'test-user-id', exp: '2020-01-01T00:00:00Z' }, { addExp: false, addIat: false })
 }
 
 function fetchApp(path: string, options: {

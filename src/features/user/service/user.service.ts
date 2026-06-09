@@ -4,7 +4,7 @@ import type { User, SafeUser, SafeUserListItem, CreateUserRequest, UpdateUserReq
 
 function toSafeUser(user: User): SafeUser {
   const { password, deleted_at, created_at, updated_at, ...rest } = user
-  return { ...rest, createdAt: created_at, updatedAt: updated_at }
+  return rest
 }
 
 export const userService = {

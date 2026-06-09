@@ -12,6 +12,8 @@ import { roleRoutes } from './features/role/routes/role.routes'
 import { userRoutes } from './features/user/routes/user.routes'
 import { userRoleRoutes } from './features/user_role/routes/user_role.routes'
 import { profileRoutes } from './features/profile/routes/profile.routes'
+import { deviceRoutes } from './features/device/routes/device.routes'
+import { notificationRoutes } from './features/notification/routes/notification.routes'
 
 const app = new Hono<Env>()
 
@@ -46,6 +48,8 @@ v1.route('/role', roleRoutes)
 v1.route('/user', userRoutes)
 v1.route('/user-role', userRoleRoutes)
 v1.route('/profile', profileRoutes)
+v1.route('/device', deviceRoutes)
+v1.route('/notification', notificationRoutes)
 
 app.route('/v1', v1)
 

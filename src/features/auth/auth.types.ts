@@ -7,3 +7,9 @@ export interface LoginResponse {
   accessToken: string
   refreshToken: string
 }
+
+export interface RefreshRequest {
+  refreshToken: string
+}
+
+export type RefreshResponse = LoginResponse

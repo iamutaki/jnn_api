@@ -1,6 +1,6 @@
 import { jwtUtil } from '../../../lib/jwt'
 import { verifyPassword } from '../../../lib/password'
-import type { LoginRequest, LoginResponse } from '../auth.types'
+import type { LoginRequest, LoginResponse, RefreshRequest } from '../auth.types'
 
 export const authService = {
   login: async (db: D1Database, body: LoginRequest, jwtSecret: string): Promise<LoginResponse> => {
@@ -16,8 +16,33 @@ export const authService = {
     }
 
     const [accessToken, refreshToken] = await Promise.all([
-      Promise.resolve(jwtUtil.signAccess({ sub: username }, jwtSecret)),
-      Promise.resolve(jwtUtil.signRefresh({ sub: username }, jwtSecret)),
+      Promise.resolve(jwtUtil.signAccess({ sub: username, userId: user.id }, jwtSecret)),
+      Promise.resolve(jwtUtil.signRefresh({ sub: username, userId: user.id }, jwtSecret)),
+    ])
+
+    return { accessToken, refreshToken }
+  },
+
+  refresh: async (db: D1Database, body: RefreshRequest, jwtSecret: string): Promise<LoginResponse> => {
+    let payload: { sub: string; userId: string }
+    try {
+      payload = jwtUtil.verify(body.refreshToken, jwtSecret)
+    } catch {
+      throw new Error('Invalid or expired refresh token')
+    }
+
+    const user = await db
+      .prepare('SELECT id, username FROM users WHERE username = ?')
+      .bind(payload.sub)
+      .first<{ id: string; username: string }>()
+
+    if (!user) {
+      throw new Error('User not found')
+    }
+
+    const [accessToken, refreshToken] = await Promise.all([
+      Promise.resolve(jwtUtil.signAccess({ sub: payload.sub, userId: user.id }, jwtSecret)),
+      Promise.resolve(jwtUtil.signRefresh({ sub: payload.sub, userId: user.id }, jwtSecret)),
     ])
 
     return { accessToken, refreshToken }

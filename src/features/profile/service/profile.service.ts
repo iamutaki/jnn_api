@@ -3,7 +3,7 @@ import type { ProfileResponse } from '../profile.types'
 
 function toProfile(user: User): ProfileResponse {
   const { password, deleted_at, created_at, updated_at, ...rest } = user
-  return { ...rest, createdAt: created_at, updatedAt: updated_at }
+  return rest
 }
 
 export const profileService = {

@@ -2,6 +2,7 @@ import { encrypt, decrypt, generateKeys } from 'paseto-ts/v4'
 
 export interface JwtPayload {
   sub: string
+  userId: string
   iat: string
   exp: string
 }
@@ -12,7 +13,7 @@ function resolveKey(key: string): string {
   if (typeof key === 'string' && key.startsWith('k4.local.')) return key
   if (!ephemeralKey) {
     ephemeralKey = generateKeys('local', { format: 'paserk' })
-    console.warn('[jwt] JWT_SECRET not configured — generated ephemeral key. Tokens invalid after restart.')
+    console.warn('[jwt] JWT_SECRET not configured — generated ephemeral key.')
   }
   return ephemeralKey
 }
@@ -21,11 +22,11 @@ export const jwtUtil = {
   encrypt,
   decrypt,
 
-  signAccess: (payload: { sub: string }, key: string) =>
-    encrypt(resolveKey(key), { sub: payload.sub }),
+  signAccess: (payload: { sub: string; userId: string }, key: string) =>
+    encrypt(resolveKey(key), { sub: payload.sub, userId: payload.userId }),
 
-  signRefresh: (payload: { sub: string }, key: string) =>
-    encrypt(resolveKey(key), { sub: payload.sub, exp: '7d' }, { addExp: false }),
+  signRefresh: (payload: { sub: string; userId: string }, key: string) =>
+    encrypt(resolveKey(key), { sub: payload.sub, userId: payload.userId, exp: '7d' }, { addExp: false }),
 
   verify: (token: string, key: string): JwtPayload => {
     const { payload } = decrypt(resolveKey(key), token)

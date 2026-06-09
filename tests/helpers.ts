@@ -4,11 +4,11 @@ import { jwtUtil } from '../src/lib/jwt'
 const JWT_SECRET = 'k4.local.tbD03hhqvTxQzAeDMonCXQ9ySpi6OLwuReDMpe8tZyM'
 
 export async function getAuthToken(secret = JWT_SECRET): Promise<string> {
-  return jwtUtil.signAccess({ sub: 'test-user' }, secret)
+  return jwtUtil.signAccess({ sub: 'test-user', userId: 'test-user-id' }, secret)
 }
 
 export async function getExpiredToken(secret = JWT_SECRET): Promise<string> {
-  return jwtUtil.encrypt(secret, { sub: 'test-user', exp: '2020-01-01T00:00:00Z' }, { addExp: false, addIat: false })
+  return jwtUtil.encrypt(secret, { sub: 'test-user', userId: 'test-user-id', exp: '2020-01-01T00:00:00Z' }, { addExp: false, addIat: false })
 }
 
 interface FetchOptions {

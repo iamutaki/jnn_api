@@ -1,0 +1,31 @@
+name = "jnn-api"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+# ─── D1 Database (default / local dev) ───────────────────────────────
+[[d1_databases]]
+binding = "DB"
+database_name = "jnn-api-db"
+database_id = "placeholder-replace-after-create"
+migrations_dir = "migrations"
+
+# ─── Staging ──────────────────────────────────────────────────────────
+[env.staging]
+name = "jnn-api-staging"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "jnn_staging"
+database_id = "10fdcdcb-19a9-42fb-9844-2ba5fdc54647"
+migrations_dir = "migrations"
+
+# ─── Production ───────────────────────────────────────────────────────
+[env.production]
+name = "jnn-api"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "jnn_production"
+database_id = "df6885de-0fa1-40c3-8dfe-a144272811f6"
+migrations_dir = "migrations"

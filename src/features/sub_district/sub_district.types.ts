@@ -11,7 +11,7 @@ export interface SubDistrict {
 }
 
 export interface CreateSubDistrictRequest {
-  district_id: string
+  districtId: string
   name: string
   code?: string
   lat?: number
@@ -19,7 +19,7 @@ export interface CreateSubDistrictRequest {
 }
 
 export interface UpdateSubDistrictRequest {
-  district_id?: string
+  districtId?: string
   name?: string
   code?: string | null
   lat?: number | null

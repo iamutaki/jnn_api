@@ -6,7 +6,7 @@ import type { Env } from '../../../types'
 import { subDistrictService } from '../service/sub_district.service'
 
 const CREATE_SCHEMA = {
-  district_id: { required: true, type: 'string' as const },
+  districtId: { required: true, type: 'string' as const },
   name: { required: true, type: 'string' as const, minLength: 2 },
   code: { type: 'string' as const },
   lat: { type: 'number' as const },
@@ -14,7 +14,7 @@ const CREATE_SCHEMA = {
 }
 
 const UPDATE_SCHEMA = {
-  district_id: { type: 'string' as const },
+  districtId: { type: 'string' as const },
   name: { type: 'string' as const, minLength: 2 },
   code: { type: 'string' as const },
   lat: { type: 'number' as const },
@@ -47,13 +47,11 @@ export const subDistrictController = {
       return response.error(c, result.errors.join(', '), 400, 'SUB_DISTRICT_VALIDATION_ERROR')
     }
 
-    // Verify district_id exists
-    const districtExists = await subDistrictService._districtExists(c.env.DB, result.body.district_id as string)
+    const districtExists = await subDistrictService._districtExists(c.env.DB, result.body.districtId as string)
     if (!districtExists) {
       return response.error(c, 'District not found', 400, 'SUB_DISTRICT_DISTRICT_NOT_FOUND')
     }
 
-    // Check name uniqueness
     const nameExists = await subDistrictService._nameExists(c.env.DB, result.body.name as string)
     if (nameExists) {
       return response.error(c, 'Name already exists', 409, 'SUB_DISTRICT_NAME_EXISTS')
@@ -74,15 +72,13 @@ export const subDistrictController = {
       return response.error(c, result.errors.join(', '), 400, 'SUB_DISTRICT_VALIDATION_ERROR')
     }
 
-    // If district_id is being updated, verify it exists
-    if (result.body.district_id !== undefined) {
-      const districtExists = await subDistrictService._districtExists(c.env.DB, result.body.district_id as string)
+    if (result.body.districtId !== undefined) {
+      const districtExists = await subDistrictService._districtExists(c.env.DB, result.body.districtId as string)
       if (!districtExists) {
         return response.error(c, 'District not found', 400, 'SUB_DISTRICT_DISTRICT_NOT_FOUND')
       }
     }
 
-    // Check name uniqueness (exclude self)
     if (result.body.name !== undefined) {
       const nameExists = await subDistrictService._nameExists(c.env.DB, result.body.name as string, id)
       if (nameExists) {

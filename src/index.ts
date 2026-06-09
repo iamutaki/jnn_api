@@ -8,6 +8,9 @@ import { authRoutes } from './features/auth/routes/auth.routes'
 import { dummyRoutes } from './features/dummy/routes/dummy.routes'
 import { districtRoutes } from './features/district/routes/district.routes'
 import { subDistrictRoutes } from './features/sub_district/routes/sub_district.routes'
+import { roleRoutes } from './features/role/routes/role.routes'
+import { userRoutes } from './features/user/routes/user.routes'
+import { userRoleRoutes } from './features/user_role/routes/user_role.routes'
 
 const app = new Hono<Env>()
 
@@ -28,6 +31,9 @@ app.get('/', (c) => {
       dummy: '/dummy',
       district: '/district',
       sub_district: '/sub-district',
+      role: '/role',
+      user: '/user',
+      user_role: '/user-role',
     },
   })
 })
@@ -37,6 +43,9 @@ app.route('/auth', authRoutes)
 app.route('/dummy', dummyRoutes)
 app.route('/district', districtRoutes)
 app.route('/sub-district', subDistrictRoutes)
+app.route('/role', roleRoutes)
+app.route('/user', userRoutes)
+app.route('/user-role', userRoleRoutes)
 
 // ─── 404 Fallback ─────────────────────────────────────────────────────
 app.notFound((c) => {

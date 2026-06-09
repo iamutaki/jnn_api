@@ -1,37 +1,31 @@
 import { jwtUtil } from '../../../lib/jwt'
+import { verifyPassword } from '../../../lib/password'
 import type { LoginRequest, LoginResponse } from '../auth.types'
 
-/**
- * Static credentials for prototype.
- * In production, replace with database lookup + bcrypt hash comparison.
- */
-interface StaticUser {
-  name: string
-  password: string
-  roles: string[]
-}
-
-const STATIC_USERS: Record<string, StaticUser> = {
-  developer: {
-    name: 'Developer',
-    password: 'password',
-    roles: ['admin', 'user'],
-  },
-}
-
 export const authService = {
-  login: async (body: LoginRequest, jwtSecret: string): Promise<LoginResponse> => {
+  login: async (db: D1Database, body: LoginRequest, jwtSecret: string): Promise<LoginResponse> => {
     const { username, password } = body
 
-    if (!username || !password) {
-      throw new Error('Username and password are required')
-    }
+    const user = await db
+      .prepare('SELECT id, username, password, name FROM users WHERE username = ?')
+      .bind(username)
+      .first<{ id: string; username: string; password: string; name: string }>()
 
-    const user = STATIC_USERS[username]
-
-    if (!user || user.password !== password) {
+    if (!user || !(await verifyPassword(password, user.password))) {
       throw new Error('Invalid username or password')
     }
+
+    const roleRows = await db
+      .prepare(`
+        SELECT r.name
+        FROM user_roles ur
+        JOIN roles r ON ur.role_id = r.id
+        WHERE ur.user_id = ?
+      `)
+      .bind(user.id)
+      .all<{ name: string }>()
+
+    const roles = roleRows.results.map((r) => r.name)
 
     const [accessToken, refreshToken] = await Promise.all([
       jwtUtil.signAccess({ sub: username }, jwtSecret),
@@ -44,7 +38,7 @@ export const authService = {
       user: {
         name: user.name,
         username,
-        roles: user.roles,
+        roles,
       },
     }
   },

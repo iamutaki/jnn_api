@@ -1,14 +1,9 @@
 import { Hono } from 'hono'
+import type { Env } from '../../../types'
 import { authController } from '../controller/auth.controller'
 
-const authRoutes = new Hono()
+const authRoutes = new Hono<Env>()
 
-/**
- * POST /auth/login
- *
- * Request body: { username: string, password: string }
- * Response:     { success: true, data: { token, user } }
- */
 authRoutes.post('/login', authController.login)
 
 export { authRoutes }

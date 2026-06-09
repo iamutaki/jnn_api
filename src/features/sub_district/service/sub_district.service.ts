@@ -6,7 +6,7 @@ export const subDistrictService = {
     const result = await db.prepare(`
       SELECT
         s.id, s.name,
-        d.id AS district_id, d.name AS district_name
+        d.id AS districtId, d.name AS districtName
       FROM sub_districts s
       LEFT JOIN districts d ON s.district_id = d.id
       ORDER BY s.created_at DESC
@@ -14,7 +14,7 @@ export const subDistrictService = {
     return result.results.map((row: any) => ({
       id: row.id,
       name: row.name,
-      district: row.district_id ? { id: row.district_id, name: row.district_name } : null,
+      district: row.districtId ? { id: row.districtId, name: row.districtName } : null,
     }))
   },
 
@@ -22,7 +22,7 @@ export const subDistrictService = {
     const row: any = await db.prepare(`
       SELECT
         s.id, s.district_id, s.name, s.code, s.lat, s.lng,
-        d.name AS district_name
+        d.name AS districtName
       FROM sub_districts s
       LEFT JOIN districts d ON s.district_id = d.id
       WHERE s.id = ?
@@ -36,22 +36,19 @@ export const subDistrictService = {
       code: row.code,
       lat: row.lat,
       lng: row.lng,
-      district: row.district_id ? { id: row.district_id, name: row.district_name } : null,
+      district: row.district_id ? { id: row.district_id, name: row.districtName } : null,
     }
   },
 
-  /** Internal: full row for update logic */
   _getFull: async (db: D1Database, id: string): Promise<SubDistrict | null> => {
     return db.prepare('SELECT * FROM sub_districts WHERE id = ?').bind(id).first<SubDistrict>()
   },
 
-  /** Check if a district exists */
   _districtExists: async (db: D1Database, districtId: string): Promise<boolean> => {
     const row = await db.prepare('SELECT 1 FROM districts WHERE id = ?').bind(districtId).first()
     return row !== null
   },
 
-  /** Check if a name already exists. Optionally exclude an id (for update self-exclusion). */
   _nameExists: async (db: D1Database, name: string, excludeId?: string): Promise<boolean> => {
     if (excludeId) {
       const row = await db.prepare('SELECT 1 FROM sub_districts WHERE name = ? AND id != ?').bind(name, excludeId).first()
@@ -65,7 +62,7 @@ export const subDistrictService = {
     const id = ulid()
     await db
       .prepare('INSERT INTO sub_districts (id, district_id, name, code, lat, lng) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(id, body.district_id, body.name, body.code ?? null, body.lat ?? null, body.lng ?? null)
+      .bind(id, body.districtId, body.name, body.code ?? null, body.lat ?? null, body.lng ?? null)
       .run()
   },
 
@@ -73,7 +70,7 @@ export const subDistrictService = {
     const existing = await subDistrictService._getFull(db, id)
     if (!existing) return false
 
-    const districtId = body.district_id ?? existing.district_id
+    const districtId = body.districtId ?? existing.district_id
     const name = body.name ?? existing.name
     const code = body.code !== undefined ? body.code : existing.code
     const lat = body.lat !== undefined ? body.lat : existing.lat

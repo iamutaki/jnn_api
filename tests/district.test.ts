@@ -301,13 +301,13 @@ describe('District CRUD', () => {
 
   // ─── UPDATE ────────────────────────────────────────────────────────
 
-  describe('PUT /district/:id', () => {
+  describe('PATCH /district/:id', () => {
     it('updates all fields of a district', async () => {
       const id = await seedDistrict({ name: 'Old Name', code: 'OLD' })
 
       const token = await getToken()
       const res = await fetchApp(`/district/${id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         token,
         body: { name: 'New Name', code: 'NEW', lat: 1.0, lng: 2.0 },
       })
@@ -326,7 +326,7 @@ describe('District CRUD', () => {
 
       const token = await getToken()
       const res = await fetchApp(`/district/${id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         token,
         body: { name: 'Jakarta Baru' },
       })
@@ -345,7 +345,7 @@ describe('District CRUD', () => {
 
       const token = await getToken()
       const res = await fetchApp(`/district/${id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         token,
         body: { code: null, lat: null, lng: null },
       })
@@ -363,7 +363,7 @@ describe('District CRUD', () => {
       const token = await getToken()
 
       const res = await fetchApp(`/district/${id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         token,
         rawBody: '',
       })
@@ -379,7 +379,7 @@ describe('District CRUD', () => {
       const token = await getToken()
 
       const res = await fetchApp(`/district/${id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         token,
         body: { name: '' },
       })
@@ -393,7 +393,7 @@ describe('District CRUD', () => {
     it('returns 404 for non-existent district', async () => {
       const token = await getToken()
       const res = await fetchApp('/district/01KTPEHM5GJG3V2JBTTKXDKZW5', {
-        method: 'PUT',
+        method: 'PATCH',
         token,
         body: { name: 'Ghost' },
       })
@@ -414,7 +414,7 @@ describe('District CRUD', () => {
 
       const token = await getToken()
       await fetchApp(`/district/${id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         token,
         body: { name: 'Updated' },
       })

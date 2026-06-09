@@ -13,13 +13,13 @@ dummyRoutes.use('/*', authMiddleware)
  * GET    /dummy      → List all items
  * GET    /dummy/:id  → Get one item
  * POST   /dummy      → Create item       { title, description? }
- * PUT    /dummy/:id  → Update item       { title?, description? }
+ * PATCH    /dummy/:id  → Update item       { title?, description? }
  * DELETE /dummy/:id  → Delete item
  */
 dummyRoutes.get('/', dummyController.list)
 dummyRoutes.get('/:id', dummyController.getOne)
 dummyRoutes.post('/', dummyController.create)
-dummyRoutes.put('/:id', dummyController.update)
+dummyRoutes.patch('/:id', dummyController.update)
 dummyRoutes.delete('/:id', dummyController.remove)
 
 export { dummyRoutes }

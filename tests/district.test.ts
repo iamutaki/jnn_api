@@ -20,8 +20,7 @@ async function getToken(secret = JWT_SECRET) {
 }
 
 async function getExpiredToken(secret = JWT_SECRET) {
-  const { sign } = await import('hono/jwt')
-  return sign({ sub: 'test-user', exp: Math.floor(Date.now() / 1000) - 1 }, secret, 'HS256')
+  return jwtUtil.encrypt(secret, { sub: 'test-user', exp: '2020-01-01T00:00:00Z' }, { addExp: false, addIat: false })
 }
 
 function fetchApp(path: string, options: {
@@ -527,7 +526,7 @@ describe('District CRUD', () => {
     })
 
     it('rejects request with wrong secret', async () => {
-      const wrongSecretToken = await getToken('wrong-secret-key')
+      const wrongSecretToken = await getToken('k4.local.WvNisWzWSm8YJkVMj7jHCFCwaV6Gd8mSgGj27e4crQA')
       const res = await fetchApp('/district', {
         token: wrongSecretToken,
       })

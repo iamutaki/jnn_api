@@ -1,35 +1,34 @@
-/**
- * JWT utility for Hono running on Cloudflare Workers.
- *
- * Secret is injected via:
- *   Local:    .env → JWT_SECRET=xxx
- *   Remote:   wrangler secret put JWT_SECRET --env staging/production
- *
- * Accessed in code via c.env.JWT_SECRET, passed here as parameter.
- */
-import { sign, verify } from 'hono/jwt'
+import { encrypt, decrypt, generateKeys } from 'paseto-ts/v4'
 
 export interface JwtPayload {
-  sub: string // username
-  iat: number
-  exp: number
+  sub: string
+  iat: string
+  exp: string
+}
+
+let ephemeralKey: string | null = null
+
+function resolveKey(key: string): string {
+  if (typeof key === 'string' && key.startsWith('k4.local.')) return key
+  if (!ephemeralKey) {
+    ephemeralKey = generateKeys('local', { format: 'paserk' })
+    console.warn('[jwt] JWT_SECRET not configured — generated ephemeral key. Tokens invalid after restart.')
+  }
+  return ephemeralKey
 }
 
 export const jwtUtil = {
-  signAccess: (payload: { sub: string }, secret: string) =>
-    sign(
-      { sub: payload.sub, exp: Math.floor(Date.now() / 1000) + 60 * 60 }, // 1 hour
-      secret,
-      'HS256',
-    ),
+  encrypt,
+  decrypt,
 
-  signRefresh: (payload: { sub: string }, secret: string) =>
-    sign(
-      { sub: payload.sub, exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7 }, // 7 days
-      secret,
-      'HS256',
-    ),
+  signAccess: (payload: { sub: string }, key: string) =>
+    encrypt(resolveKey(key), { sub: payload.sub }),
 
-  verify: (token: string, secret: string) =>
-    verify(token, secret, 'HS256') as unknown as Promise<JwtPayload>,
+  signRefresh: (payload: { sub: string }, key: string) =>
+    encrypt(resolveKey(key), { sub: payload.sub, exp: '7d' }, { addExp: false }),
+
+  verify: (token: string, key: string): JwtPayload => {
+    const { payload } = decrypt(resolveKey(key), token)
+    return payload as unknown as JwtPayload
+  },
 }

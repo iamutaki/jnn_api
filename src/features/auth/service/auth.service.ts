@@ -28,18 +28,13 @@ export const authService = {
     const roles = roleRows.results.map((r) => r.name)
 
     const [accessToken, refreshToken] = await Promise.all([
-      jwtUtil.signAccess({ sub: username }, jwtSecret),
-      jwtUtil.signRefresh({ sub: username }, jwtSecret),
+      Promise.resolve(jwtUtil.signAccess({ sub: username }, jwtSecret)),
+      Promise.resolve(jwtUtil.signRefresh({ sub: username }, jwtSecret)),
     ])
 
     return {
       accessToken,
       refreshToken,
-      user: {
-        name: user.name,
-        username,
-        roles,
-      },
     }
   },
 }

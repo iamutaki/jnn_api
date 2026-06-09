@@ -5,6 +5,6 @@ INSERT OR IGNORE INTO users (id, username, password, name)
 VALUES (
   '01KTPXA4NXKZR058FRVTNBQR99',
   'iamutaki',
-  '8ffec39e0dc4dd06fdcb80921faf30936fb461f00b306967676493f1dfc9cb9a',
+  '$argon2id$v=19$m=19456,t=2,p=1$VALyf2UIPLmNlDLOQ03J+g==$1ess7Bo3oNsJ1AfGY0zfz46Awv7toLUPlVX1eA8x4Mc=',
   'Ibnul Mutaki'
 );

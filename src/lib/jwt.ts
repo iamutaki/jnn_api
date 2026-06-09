@@ -1,9 +1,11 @@
 /**
  * JWT utility for Hono running on Cloudflare Workers.
  *
- * Cloudflare Workers don't have Node's `crypto` module,
- * but they DO have the Web Crypto API built-in.
- * Hono's built-in jwt helper wraps this nicely.
+ * Secret is injected via:
+ *   Local:    .env → JWT_SECRET=xxx
+ *   Remote:   wrangler secret put JWT_SECRET --env staging/production
+ *
+ * Accessed in code via c.env.JWT_SECRET, passed here as parameter.
  */
 import { sign, verify } from 'hono/jwt'
 
@@ -13,24 +15,21 @@ export interface JwtPayload {
   exp: number
 }
 
-// In production, this should come from Cloudflare secret/environment variable
-const JWT_SECRET = 'jnn-prototype-secret-key-2024'
-
 export const jwtUtil = {
-  signAccess: (payload: { sub: string }) =>
+  signAccess: (payload: { sub: string }, secret: string) =>
     sign(
       { sub: payload.sub, exp: Math.floor(Date.now() / 1000) + 60 * 60 }, // 1 hour
-      JWT_SECRET,
+      secret,
       'HS256',
     ),
 
-  signRefresh: (payload: { sub: string }) =>
+  signRefresh: (payload: { sub: string }, secret: string) =>
     sign(
       { sub: payload.sub, exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7 }, // 7 days
-      JWT_SECRET,
+      secret,
       'HS256',
     ),
 
-  verify: (token: string) =>
-    verify(token, JWT_SECRET, 'HS256') as unknown as Promise<JwtPayload>,
+  verify: (token: string, secret: string) =>
+    verify(token, secret, 'HS256') as unknown as Promise<JwtPayload>,
 }

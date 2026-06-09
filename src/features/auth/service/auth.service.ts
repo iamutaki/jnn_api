@@ -20,7 +20,7 @@ const STATIC_USERS: Record<string, StaticUser> = {
 }
 
 export const authService = {
-  login: async (body: LoginRequest): Promise<LoginResponse> => {
+  login: async (body: LoginRequest, jwtSecret: string): Promise<LoginResponse> => {
     const { username, password } = body
 
     if (!username || !password) {
@@ -34,8 +34,8 @@ export const authService = {
     }
 
     const [accessToken, refreshToken] = await Promise.all([
-      jwtUtil.signAccess({ sub: username }),
-      jwtUtil.signRefresh({ sub: username }),
+      jwtUtil.signAccess({ sub: username }, jwtSecret),
+      jwtUtil.signRefresh({ sub: username }, jwtSecret),
     ])
 
     return {

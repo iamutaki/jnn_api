@@ -3,6 +3,7 @@ import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { prettyJSON } from 'hono/pretty-json'
 import type { Env } from './types'
+import { response } from './lib/response'
 import { authRoutes } from './features/auth/routes/auth.routes'
 import { dummyRoutes } from './features/dummy/routes/dummy.routes'
 import { districtRoutes } from './features/district/routes/district.routes'
@@ -17,8 +18,9 @@ app.use('*', prettyJSON())  // Pretty JSON in dev
 // ─── Health Check ─────────────────────────────────────────────────────
 app.get('/', (c) => {
   return c.json({
-    name: 'JNN API',
-    version: '0.0.1',
+    name: c.env.API_NAME,
+    version: c.env.API_VERSION,
+    environment: c.env.ENVIRONMENT,
     status: 'running',
     endpoints: {
       auth: '/auth/login',
@@ -35,13 +37,13 @@ app.route('/district', districtRoutes)
 
 // ─── 404 Fallback ─────────────────────────────────────────────────────
 app.notFound((c) => {
-  return c.json({error: 'Route not found' }, 404)
+  return response.error(c, 'Route not found', 404, 'ROUTE_NOT_FOUND')
 })
 
 // ─── Global Error Handler ─────────────────────────────────────────────
 app.onError((err, c) => {
   console.error('Unhandled error:', err)
-  return c.json({error: 'Internal server error' }, 500)
+  return response.error(c, 'Internal server error', 500, 'INTERNAL_ERROR')
 })
 
 // Cloudflare Workers export

@@ -1,5 +1,5 @@
 import type { Context } from 'hono'
-import type { ContentfulStatusCode } from 'hono/utils/http-status'
+import type { StatusCode, ContentfulStatusCode } from 'hono/utils/http-status'
 
 interface PaginationMeta {
   page: number
@@ -30,6 +30,9 @@ interface ErrorMeta {
 export const response = {
   success: <T>(c: Context, data: T, status: ContentfulStatusCode = 200) =>
     c.json({ success: true as const, data }, status),
+
+  noContent: (c: Context, status: StatusCode = 201) =>
+    c.body(null, status),
 
   paginated: <T>(
     c: Context,

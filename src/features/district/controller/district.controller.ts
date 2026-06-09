@@ -45,8 +45,8 @@ export const districtController = {
       return response.error(c, result.errors.join(', '), 400, 'DISTRICT_VALIDATION_ERROR')
     }
 
-    const item = await districtService.create(c.env.DB, body as any)
-    return response.success(c, item, 201)
+    await districtService.create(c.env.DB, body as any)
+    return response.noContent(c, 201)
   },
 
   update: async (c: Context<Env>) => {
@@ -66,7 +66,7 @@ export const districtController = {
       return response.error(c, 'District not found', 404, 'DISTRICT_NOT_FOUND')
     }
 
-    return response.success(c, item)
+    return response.noContent(c, 204)
   },
 
   remove: async (c: Context<Env>) => {
@@ -77,6 +77,6 @@ export const districtController = {
       return response.error(c, 'District not found', 404, 'DISTRICT_NOT_FOUND')
     }
 
-    return response.success(c, { message: 'District deleted' })
+    return response.noContent(c, 204)
   },
 }

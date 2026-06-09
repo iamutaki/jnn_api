@@ -1,6 +1,9 @@
 /// <reference path="./global.d.ts" />
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest'
-import { env, SELF, reset, applyD1Migrations } from 'cloudflare:test'
+// @ts-ignore — provided by @cloudflare/vitest-pool-workers at runtime
+import { env } from 'cloudflare:workers'
+// @ts-ignore — SELF is the app's default export, available via pool main config
+import { SELF } from 'cloudflare:workers'
 import { readD1Migrations } from '@cloudflare/vitest-pool-workers'
 import { jwtUtil } from '../src/lib/jwt'
 import type { Env } from '../src/types'
@@ -25,7 +28,7 @@ function fetchApp(path: string, options: {
   method?: string
   body?: unknown
   token?: string
-  rawBody?: string // for sending raw string body
+  rawBody?: string
 } = {}) {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (options.token) headers['Authorization'] = `Bearer ${options.token}`
@@ -53,17 +56,28 @@ async function seedDistrict(data: {
   return id
 }
 
+async function applyMigrations() {
+  if (!migrations) migrations = await readD1Migrations('./migrations')
+  for (const migration of migrations) {
+    for (const query of migration.queries) {
+      await typedEnv.DB.exec(query)
+    }
+  }
+}
+
+async function cleanTable() {
+  await typedEnv.DB.prepare('DELETE FROM districts').run()
+}
+
 // ─── Tests ─────────────────────────────────────────────────────────────
 
 describe('District CRUD', () => {
   beforeAll(async () => {
-    migrations = await readD1Migrations('./migrations')
-    await applyD1Migrations(typedEnv.DB, migrations)
+    await applyMigrations()
   })
 
   beforeEach(async () => {
-    await reset()
-    await applyD1Migrations(typedEnv.DB, migrations)
+    await cleanTable()
   })
 
   // ─── LIST ──────────────────────────────────────────────────────────

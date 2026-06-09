@@ -13,29 +13,31 @@ import type { District, CreateDistrictRequest, UpdateDistrictRequest } from '../
  *   db.prepare(sql).bind(...params).all<T>()     → SELECT multiple rows
  */
 export const districtService = {
-  getAll: async (db: D1Database): Promise<District[]> => {
-    const result = await db.prepare('SELECT * FROM districts ORDER BY created_at DESC').all<District>()
+  getAll: async (db: D1Database): Promise<Pick<District, 'id' | 'name'>[]> => {
+    const result = await db.prepare('SELECT id, name FROM districts ORDER BY created_at DESC').all<Pick<District, 'id' | 'name'>>()
     return result.results
   },
 
-  getById: async (db: D1Database, id: string): Promise<District | null> => {
+  getById: async (db: D1Database, id: string): Promise<Omit<District, 'created_at' | 'updated_at' | 'deleted_at'> | null> => {
+    return db.prepare('SELECT id, name, code, lat, lng FROM districts WHERE id = ?').bind(id).first()
+  },
+
+  /** Internal: full row for update logic */
+  _getFull: async (db: D1Database, id: string): Promise<District | null> => {
     return db.prepare('SELECT * FROM districts WHERE id = ?').bind(id).first<District>()
   },
 
-  create: async (db: D1Database, body: CreateDistrictRequest): Promise<District> => {
+  create: async (db: D1Database, body: CreateDistrictRequest): Promise<void> => {
     const id = ulid()
     await db
       .prepare('INSERT INTO districts (id, name, code, lat, lng) VALUES (?, ?, ?, ?, ?)')
       .bind(id, body.name, body.code ?? null, body.lat ?? null, body.lng ?? null)
       .run()
-
-    const created = await districtService.getById(db, id)
-    return created!
   },
 
-  update: async (db: D1Database, id: string, body: UpdateDistrictRequest): Promise<District | null> => {
-    const existing = await districtService.getById(db, id)
-    if (!existing) return null
+  update: async (db: D1Database, id: string, body: UpdateDistrictRequest): Promise<boolean> => {
+    const existing = await districtService._getFull(db, id)
+    if (!existing) return false
 
     const name = body.name ?? existing.name
     const code = body.code !== undefined ? body.code : existing.code
@@ -47,11 +49,11 @@ export const districtService = {
       .bind(name, code, lat, lng, id)
       .run()
 
-    return districtService.getById(db, id)
+    return true
   },
 
   remove: async (db: D1Database, id: string): Promise<boolean> => {
-    const existing = await districtService.getById(db, id)
+    const existing = await districtService._getFull(db, id)
     if (!existing) return false
 
     await db.prepare('DELETE FROM districts WHERE id = ?').bind(id).run()

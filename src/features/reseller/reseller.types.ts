@@ -12,14 +12,28 @@ export interface Reseller {
   deleted_at: string | null
 }
 
-export interface ResellerResponse {
+export interface ResellerListItemUser {
   id: string
   name: string
   username: string
   avatar: string | null
+}
+
+export interface ResellerListItem {
+  user: ResellerListItemUser
+  subDistrict: { id: string; name: string }
+}
+
+export interface SubDistrictInfo {
+  id: string
+  name: string
+  district: { id: string; name: string }
+}
+
+export interface ResellerResponse {
+  user: ResellerListItemUser
   venuePhoto: string | null
-  subDistrictId: string
-  subDistrictName: string
+  subDistrict: SubDistrictInfo
   commissionRate: number
   commissionAmount: number
   lat: number | null

@@ -1,16 +1,13 @@
 import { ulid } from '../../../lib/ulid'
 import { hashPassword } from '../../../lib/password'
-import type { Reseller, CreateResellerRequest, UpdateResellerRequest, ResellerResponse } from '../reseller.types'
+import type { Reseller, ResellerListItem, CreateResellerRequest, UpdateResellerRequest, ResellerResponse } from '../reseller.types'
 
 export const resellerService = {
-  getAll: async (db: D1Database): Promise<ResellerResponse[]> => {
+  getAll: async (db: D1Database): Promise<ResellerListItem[]> => {
     const result = await db.prepare(`
       SELECT
         u.id, u.name, u.username, u.avatar,
-        r.venue_photo, r.sub_district_id,
-        sd.name AS sub_district_name,
-        r.commission_rate, r.commission_amount,
-        r.lat, r.lng, r.phone
+        sd.id AS sd_id, sd.name AS sd_name
       FROM resellers r
       JOIN users u ON u.id = r.id
       LEFT JOIN sub_districts sd ON sd.id = r.sub_district_id
@@ -19,18 +16,8 @@ export const resellerService = {
     `).all()
 
     return (result.results as any[]).map((row: any) => ({
-      id: row.id,
-      name: row.name,
-      username: row.username,
-      avatar: row.avatar,
-      venuePhoto: row.venue_photo,
-      subDistrictId: row.sub_district_id,
-      subDistrictName: row.sub_district_name,
-      commissionRate: row.commission_rate,
-      commissionAmount: row.commission_amount,
-      lat: row.lat,
-      lng: row.lng,
-      phone: row.phone,
+      user: { id: row.id, name: row.name, username: row.username, avatar: row.avatar },
+      subDistrict: { id: row.sd_id ?? '', name: row.sd_name ?? '' },
     }))
   },
 
@@ -38,26 +25,27 @@ export const resellerService = {
     const row: any = await db.prepare(`
       SELECT
         u.id, u.name, u.username, u.avatar,
-        r.venue_photo, r.sub_district_id,
-        sd.name AS sub_district_name,
-        r.commission_rate, r.commission_amount,
-        r.lat, r.lng, r.phone
+        r.venue_photo, r.commission_rate, r.commission_amount,
+        r.lat, r.lng, r.phone,
+        sd.id AS sd_id, sd.name AS sd_name,
+        d.id AS d_id, d.name AS d_name
       FROM resellers r
       JOIN users u ON u.id = r.id
       LEFT JOIN sub_districts sd ON sd.id = r.sub_district_id
+      LEFT JOIN districts d ON d.id = sd.district_id
       WHERE r.id = ? AND r.deleted_at IS NULL
     `).bind(id).first()
 
     if (!row) return null
 
     return {
-      id: row.id,
-      name: row.name,
-      username: row.username,
-      avatar: row.avatar,
+      user: { id: row.id, name: row.name, username: row.username, avatar: row.avatar },
       venuePhoto: row.venue_photo,
-      subDistrictId: row.sub_district_id,
-      subDistrictName: row.sub_district_name,
+      subDistrict: {
+        id: row.sd_id,
+        name: row.sd_name,
+        district: { id: row.d_id, name: row.d_name },
+      },
       commissionRate: row.commission_rate,
       commissionAmount: row.commission_amount,
       lat: row.lat,

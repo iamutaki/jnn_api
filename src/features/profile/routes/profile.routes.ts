@@ -10,5 +10,6 @@ profileRoutes.use('/*', authMiddleware)
 profileRoutes.get('/', profileController.get)
 profileRoutes.patch('/', profileController.update)
 profileRoutes.patch('/avatar', profileController.updateAvatar)
+profileRoutes.patch('/change-password', profileController.changePassword)
 
 export { profileRoutes }

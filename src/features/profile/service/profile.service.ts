@@ -1,5 +1,6 @@
 import type { User } from '../../user/user.types'
 import type { ProfileResponse } from '../profile.types'
+import { hashPassword, verifyPassword } from '../../../lib/password'
 
 function toProfile(user: User): ProfileResponse {
   const { password, deleted_at, created_at, updated_at, ...rest } = user
@@ -57,5 +58,24 @@ export const profileService = {
       .bind(username)
       .first<User>()
     return updated ? toProfile(updated) : null
+  },
+
+  changePassword: async (db: D1Database, username: string, oldPassword: string, newPassword: string): Promise<boolean> => {
+    const user = await db
+      .prepare('SELECT * FROM users WHERE username = ?')
+      .bind(username)
+      .first<User>()
+    if (!user) return false
+
+    const valid = await verifyPassword(oldPassword, user.password)
+    if (!valid) return false
+
+    const hashed = await hashPassword(newPassword)
+    await db
+      .prepare("UPDATE users SET password = ?, updated_at = datetime('now') WHERE username = ?")
+      .bind(hashed, username)
+      .run()
+
+    return true
   },
 }

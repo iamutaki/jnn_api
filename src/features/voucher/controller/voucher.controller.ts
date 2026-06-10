@@ -89,12 +89,18 @@ export const voucherController = {
 
   remove: async (c: Context<Env>) => {
     const id = c.req.param('id') ?? ''
-    const deleted = await voucherService.remove(c.env.DB, id)
 
-    if (!deleted) {
+    const existing = await voucherService._getFull(c.env.DB, id)
+    if (!existing) {
       return response.error(c, 'Voucher not found', 404, 'VOUCHER_NOT_FOUND')
     }
 
+    const linked = await voucherService._linkedToSubDistricts(c.env.DB, id)
+    if (linked) {
+      return response.error(c, 'Cannot delete voucher that is assigned to sub-districts. Remove all assignments first.', 409, 'VOUCHER_HAS_SUB_DISTRICTS')
+    }
+
+    await voucherService.remove(c.env.DB, id)
     return response.noContent(c, 204)
   },
 }

@@ -12,10 +12,6 @@ const UPDATE_SCHEMA = {
   address: { type: 'string' as const },
 }
 
-const AVATAR_SCHEMA = {
-  avatar: { required: true, type: 'string' as const, minLength: 1 },
-}
-
 export const profileController = {
   get: async (c: Context<Env>) => {
     const username = c.get('user').sub
@@ -54,7 +50,7 @@ export const profileController = {
     const body = await safeJsonBody(c)
     if (body instanceof Response) return body
 
-    const result = validate(body, AVATAR_SCHEMA)
+    const result = validate(body, { avatar: { required: true, type: 'string' as const, minLength: 1 } })
     if (!result.valid) {
       return response.error(c, result.errors.join(', '), 400, 'AVATAR_VALIDATION_ERROR')
     }

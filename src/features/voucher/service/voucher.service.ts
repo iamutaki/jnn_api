@@ -24,6 +24,11 @@ export const voucherService = {
     return row !== null
   },
 
+  _linkedToSubDistricts: async (db: D1Database, id: string): Promise<boolean> => {
+    const row = await db.prepare('SELECT 1 FROM sub_district_vouchers WHERE voucher_id = ? AND deleted_at IS NULL').bind(id).first()
+    return row !== null
+  },
+
   create: async (db: D1Database, body: CreateVoucherRequest): Promise<void> => {
     const id = ulid()
     await db
@@ -48,11 +53,7 @@ export const voucherService = {
     return true
   },
 
-  remove: async (db: D1Database, id: string): Promise<boolean> => {
-    const existing = await voucherService._getFull(db, id)
-    if (!existing) return false
-
+  remove: async (db: D1Database, id: string): Promise<void> => {
     await db.prepare("UPDATE vouchers SET deleted_at = datetime('now') WHERE id = ?").bind(id).run()
-    return true
   },
 }

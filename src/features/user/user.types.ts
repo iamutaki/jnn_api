@@ -20,6 +20,7 @@ export interface SafeUser {
   email: string | null
   address: string | null
   avatar: string | null
+  roles: string[]
 }
 
 export interface SafeUserListItem {
@@ -27,6 +28,7 @@ export interface SafeUserListItem {
   username: string
   name: string
   avatar: string | null
+  roles: string[]
 }
 
 export interface CreateUserRequest {
@@ -42,7 +44,7 @@ export interface CreateUserRequest {
 
 export interface UpdateUserRequest {
   username?: string
-  password?: string
+  password?: string | null
   name?: string
   phone?: string | null
   email?: string | null

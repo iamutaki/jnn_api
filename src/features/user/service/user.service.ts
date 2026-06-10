@@ -2,23 +2,50 @@ import { ulid } from '../../../lib/ulid'
 import { hashPassword } from '../../../lib/password'
 import type { User, SafeUser, SafeUserListItem, CreateUserRequest, UpdateUserRequest } from '../user.types'
 
-function toSafeUser(user: User): SafeUser {
-  const { password, deleted_at, created_at, updated_at, ...rest } = user
-  return rest
-}
-
 export const userService = {
   getAll: async (db: D1Database): Promise<SafeUserListItem[]> => {
     const result = await db.prepare(`
-      SELECT id, username, name, avatar FROM users ORDER BY created_at DESC
-    `).all<SafeUserListItem>()
-    return result.results
+      SELECT u.id, u.username, u.name, u.avatar, GROUP_CONCAT(r.name, ',') as role_names
+      FROM users u
+      LEFT JOIN user_roles ur ON ur.user_id = u.id
+      LEFT JOIN roles r ON r.id = ur.role_id
+      GROUP BY u.id
+      ORDER BY u.created_at DESC
+    `).all<any>()
+
+    return result.results.map((row: any) => ({
+      id: row.id,
+      username: row.username,
+      name: row.name,
+      avatar: row.avatar,
+      roles: row.role_names ? row.role_names.split(',').filter(Boolean) : [],
+    }))
   },
 
   getById: async (db: D1Database, id: string): Promise<SafeUser | null> => {
-    const user = await db.prepare('SELECT * FROM users WHERE id = ?').bind(id).first<User>()
-    if (!user) return null
-    return toSafeUser(user)
+    const row: any = await db
+      .prepare(`
+        SELECT u.*, GROUP_CONCAT(r.name, ',') as role_names
+        FROM users u
+        LEFT JOIN user_roles ur ON ur.user_id = u.id
+        LEFT JOIN roles r ON r.id = ur.role_id
+        WHERE u.id = ?
+        GROUP BY u.id
+      `)
+      .bind(id)
+      .first()
+    if (!row) return null
+
+    return {
+      id: row.id,
+      username: row.username,
+      name: row.name,
+      phone: row.phone,
+      email: row.email,
+      address: row.address,
+      avatar: row.avatar,
+      roles: row.role_names ? row.role_names.split(',').filter(Boolean) : [],
+    }
   },
 
   _getFull: async (db: D1Database, id: string): Promise<User | null> => {
@@ -60,7 +87,7 @@ export const userService = {
     if (!existing) return false
 
     const username = body.username !== undefined ? body.username : existing.username
-    const password = body.password !== undefined ? await hashPassword(body.password) : existing.password
+    const password = body.password !== undefined && body.password !== null ? await hashPassword(body.password) : existing.password
     const name = body.name ?? existing.name
     const phone = body.phone !== undefined ? body.phone : existing.phone
     const email = body.email !== undefined ? body.email : existing.email

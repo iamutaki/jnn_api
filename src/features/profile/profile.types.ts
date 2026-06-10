@@ -6,6 +6,7 @@ export interface ProfileResponse {
   email: string | null
   address: string | null
   avatar: string | null
+  roles: string[]
 }
 
 export interface UpdateProfileRequest {

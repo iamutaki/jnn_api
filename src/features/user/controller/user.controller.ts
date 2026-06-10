@@ -17,7 +17,6 @@ const CREATE_SCHEMA = {
 
 const UPDATE_SCHEMA = {
   username: { type: 'string' as const },
-  password: { type: 'string' as const, minLength: 6 },
   name: { type: 'string' as const, minLength: 1 },
   phone: { type: 'string' as const },
   email: { type: 'string' as const },
@@ -112,6 +111,13 @@ export const userController = {
     const result = validate(body, UPDATE_SCHEMA)
     if (!result.valid) {
       return response.error(c, result.errors.join(', '), 400, 'USER_VALIDATION_ERROR')
+    }
+
+    const password = body.password
+    if (password !== undefined && password !== null) {
+      if (typeof password !== 'string' || password.length < 6) {
+        return response.error(c, 'Password must be at least 6 characters', 400, 'USER_VALIDATION_ERROR')
+      }
     }
 
     const conflict = await checkUniqueFields(c, result.body, id)

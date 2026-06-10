@@ -1,9 +1,9 @@
-import { jwtUtil } from '../../../lib/jwt'
+import { tokenUtil } from '../../../lib/token'
 import { verifyPassword } from '../../../lib/password'
 import type { LoginRequest, LoginResponse, RefreshRequest } from '../auth.types'
 
 export const authService = {
-  login: async (db: D1Database, body: LoginRequest, jwtSecret: string): Promise<LoginResponse> => {
+  login: async (db: D1Database, body: LoginRequest, secret: string): Promise<LoginResponse> => {
     const { username, password } = body
 
     const user = await db
@@ -16,17 +16,17 @@ export const authService = {
     }
 
     const [accessToken, refreshToken] = await Promise.all([
-      Promise.resolve(jwtUtil.signAccess({ sub: username, userId: user.id }, jwtSecret)),
-      Promise.resolve(jwtUtil.signRefresh({ sub: username, userId: user.id }, jwtSecret)),
+      Promise.resolve(tokenUtil.signAccess({ sub: username, userId: user.id }, secret)),
+      Promise.resolve(tokenUtil.signRefresh({ sub: username, userId: user.id }, secret)),
     ])
 
     return { accessToken, refreshToken }
   },
 
-  refresh: async (db: D1Database, body: RefreshRequest, jwtSecret: string): Promise<LoginResponse> => {
+  refresh: async (db: D1Database, body: RefreshRequest, secret: string): Promise<LoginResponse> => {
     let payload: { sub: string; userId: string }
     try {
-      payload = jwtUtil.verify(body.refreshToken, jwtSecret)
+      payload = tokenUtil.verify(body.refreshToken, secret)
     } catch {
       throw new Error('Invalid or expired refresh token')
     }
@@ -41,8 +41,8 @@ export const authService = {
     }
 
     const [accessToken, refreshToken] = await Promise.all([
-      Promise.resolve(jwtUtil.signAccess({ sub: payload.sub, userId: user.id }, jwtSecret)),
-      Promise.resolve(jwtUtil.signRefresh({ sub: payload.sub, userId: user.id }, jwtSecret)),
+      Promise.resolve(tokenUtil.signAccess({ sub: payload.sub, userId: user.id }, secret)),
+      Promise.resolve(tokenUtil.signRefresh({ sub: payload.sub, userId: user.id }, secret)),
     ])
 
     return { accessToken, refreshToken }

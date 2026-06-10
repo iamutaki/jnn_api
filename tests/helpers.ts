@@ -1,5 +1,5 @@
 import app from '../src/index'
-import { jwtUtil } from '../src/lib/jwt'
+import { jwtUtil } from '../src/lib/token'
 
 const JWT_SECRET = 'k4.local.tbD03hhqvTxQzAeDMonCXQ9ySpi6OLwuReDMpe8tZyM'
 

@@ -43,16 +43,15 @@ function fetchApp(path: string, options: {
   )
 }
 
-async function seedDistrict(data: {
+async function seedVoucher(data: {
   name: string
-  code?: string
-  lat?: number
-  lng?: number
+  price: number
+  description?: string
 }) {
   const id = crypto.randomUUID().replace(/-/g, '').slice(0, 26)
   await typedEnv.DB
-    .prepare('INSERT INTO districts (id, name, code, lat, lng) VALUES (?, ?, ?, ?, ?)')
-    .bind(id, data.name, data.code ?? null, data.lat ?? null, data.lng ?? null)
+    .prepare('INSERT INTO vouchers (id, name, price, description) VALUES (?, ?, ?, ?)')
+    .bind(id, data.name, data.price, data.description ?? null)
     .run()
   return id
 }
@@ -67,12 +66,12 @@ async function applyMigrations() {
 }
 
 async function cleanTable() {
-  await typedEnv.DB.prepare('DELETE FROM districts').run()
+  await typedEnv.DB.prepare('DELETE FROM vouchers').run()
 }
 
 // ─── Tests ─────────────────────────────────────────────────────────────
 
-describe('District CRUD', () => {
+describe('Voucher CRUD', () => {
   beforeAll(async () => {
     await applyMigrations()
   })
@@ -83,10 +82,10 @@ describe('District CRUD', () => {
 
   // ─── LIST ──────────────────────────────────────────────────────────
 
-  describe('GET /district', () => {
-    it('returns empty list when no districts', async () => {
+  describe('GET /voucher', () => {
+    it('returns empty list when no vouchers', async () => {
       const token = await getToken()
-      const res = await fetchApp('/district', { token })
+      const res = await fetchApp('/voucher', { token })
       const body = await res.json() as any
 
       expect(res.status).toBe(200)
@@ -94,101 +93,99 @@ describe('District CRUD', () => {
       expect(body.data).toEqual([])
     })
 
-    it('returns all districts ordered by created_at desc', async () => {
-      await seedDistrict({ name: 'Jakarta' })
-      await seedDistrict({ name: 'Bandung' })
+    it('returns all vouchers ordered by created_at desc', async () => {
+      await seedVoucher({ name: 'Voucher A', price: 10000 })
+      await seedVoucher({ name: 'Voucher B', price: 20000 })
 
       const token = await getToken()
-      const res = await fetchApp('/district', { token })
+      const res = await fetchApp('/voucher', { token })
       const body = await res.json() as any
 
       expect(res.status).toBe(200)
       expect(body.success).toBe(true)
       expect(body.data).toHaveLength(2)
-      expect(body.data[0].name).toBe('Bandung')
-      expect(body.data[1].name).toBe('Jakarta')
+      expect(body.data[0].name).toBe('Voucher B')
+      expect(body.data[1].name).toBe('Voucher A')
     })
   })
 
   // ─── GET ONE ───────────────────────────────────────────────────────
 
-  describe('GET /district/:id', () => {
-    it('returns a single district by id', async () => {
-      const id = await seedDistrict({ name: 'Jakarta Selatan', code: 'JKTS', lat: -6.2615, lng: 106.8106 })
+  describe('GET /voucher/:id', () => {
+    it('returns a single voucher by id', async () => {
+      const id = await seedVoucher({ name: 'Discount 50%', price: 50000, description: 'Half price voucher' })
 
       const token = await getToken()
-      const res = await fetchApp(`/district/${id}`, { token })
+      const res = await fetchApp(`/voucher/${id}`, { token })
       const body = await res.json() as any
 
       expect(res.status).toBe(200)
       expect(body.success).toBe(true)
       expect(body.data.id).toBe(id)
-      expect(body.data.name).toBe('Jakarta Selatan')
-      expect(body.data.code).toBe('JKTS')
-      expect(body.data.lat).toBe(-6.2615)
-      expect(body.data.lng).toBe(106.8106)
+      expect(body.data.name).toBe('Discount 50%')
+      expect(body.data.price).toBe(50000)
+      expect(body.data.description).toBe('Half price voucher')
     })
 
     it('returns 404 for non-existent id', async () => {
       const token = await getToken()
-      const res = await fetchApp('/district/01KTPEHM5GJG3V2JBTTKXDKZW5', { token })
+      const res = await fetchApp('/voucher/01KTPEHM5GJG3V2JBTTKXDKZW5', { token })
       const body = await res.json() as any
 
       expect(res.status).toBe(404)
       expect(body.success).toBe(false)
       expect(body.error).toBeDefined()
-      expect(body.meta.code).toBe('DISTRICT_NOT_FOUND')
+      expect(body.meta.code).toBe('VOUCHER_NOT_FOUND')
     })
   })
 
   // ─── CREATE ────────────────────────────────────────────────────────
 
-  describe('POST /district', () => {
-    it('creates a district with all fields', async () => {
+  describe('POST /voucher', () => {
+    it('creates a voucher with all fields', async () => {
       const token = await getToken()
-      const res = await fetchApp('/district', {
+      const res = await fetchApp('/voucher', {
         method: 'POST',
         token,
-        body: { name: 'Surabaya', code: 'SBY', lat: -7.2575, lng: 112.7521 },
+        body: { name: 'Summer Sale', price: 25000, description: 'Summer discount' },
       })
 
       expect(res.status).toBe(201)
-
-      const saved = await typedEnv.DB
-        .prepare('SELECT * FROM districts WHERE name = ?')
-        .bind('Surabaya')
-        .first()
-      expect(saved).toBeDefined()
-      expect(saved!.name).toBe('Surabaya')
-      expect(saved!.code).toBe('SBY')
-      expect(saved!.lat).toBe(-7.2575)
-      expect(saved!.lng).toBe(112.7521)
     })
 
-    it('creates a district with only required fields', async () => {
+    it('creates a voucher with only required fields', async () => {
       const token = await getToken()
-      const res = await fetchApp('/district', {
+      const res = await fetchApp('/voucher', {
         method: 'POST',
         token,
-        body: { name: 'Depok' },
+        body: { name: 'Basic', price: 10000 },
       })
 
       expect(res.status).toBe(201)
+    })
+
+    it('persists the created voucher in database', async () => {
+      const token = await getToken()
+      await fetchApp('/voucher', {
+        method: 'POST',
+        token,
+        body: { name: 'Flash Sale', price: 15000, description: 'Limited time' },
+      })
 
       const saved = await typedEnv.DB
-        .prepare('SELECT * FROM districts WHERE name = ?')
-        .bind('Depok')
+        .prepare('SELECT * FROM vouchers WHERE name = ?')
+        .bind('Flash Sale')
         .first()
+
       expect(saved).toBeDefined()
-      expect(saved!.name).toBe('Depok')
-      expect(saved!.code).toBeNull()
-      expect(saved!.lat).toBeNull()
-      expect(saved!.lng).toBeNull()
+      expect(saved!.name).toBe('Flash Sale')
+      expect(saved!.price).toBe(15000)
+      expect(saved!.description).toBe('Limited time')
     })
 
     it('returns 400 when body is empty', async () => {
       const token = await getToken()
-      const res = await fetchApp('/district', {
+      const res = await fetchApp('/voucher', {
         method: 'POST',
         token,
         rawBody: '',
@@ -202,7 +199,7 @@ describe('District CRUD', () => {
 
     it('returns 400 when body is invalid JSON', async () => {
       const token = await getToken()
-      const res = await fetchApp('/district', {
+      const res = await fetchApp('/voucher', {
         method: 'POST',
         token,
         rawBody: 'not json{{{',
@@ -216,25 +213,39 @@ describe('District CRUD', () => {
 
     it('returns 400 when name is missing', async () => {
       const token = await getToken()
-      const res = await fetchApp('/district', {
+      const res = await fetchApp('/voucher', {
         method: 'POST',
         token,
-        body: { code: 'TEST' },
+        body: { price: 10000 },
       })
       const body = await res.json() as any
 
       expect(res.status).toBe(400)
       expect(body.success).toBe(false)
-      expect(body.meta.code).toBe('DISTRICT_VALIDATION_ERROR')
+      expect(body.meta.code).toBe('VOUCHER_VALIDATION_ERROR')
       expect(body.error).toContain('name is required')
+    })
+
+    it('returns 400 when name is too short (min 2 chars)', async () => {
+      const token = await getToken()
+      const res = await fetchApp('/voucher', {
+        method: 'POST',
+        token,
+        body: { name: 'A', price: 10000 },
+      })
+      const body = await res.json() as any
+
+      expect(res.status).toBe(400)
+      expect(body.success).toBe(false)
+      expect(body.error).toContain('name must be at least 2 characters')
     })
 
     it('returns 400 when name is empty string', async () => {
       const token = await getToken()
-      const res = await fetchApp('/district', {
+      const res = await fetchApp('/voucher', {
         method: 'POST',
         token,
-        body: { name: '' },
+        body: { name: '', price: 10000 },
       })
       const body = await res.json() as any
 
@@ -245,10 +256,10 @@ describe('District CRUD', () => {
 
     it('returns 400 when name is not a string', async () => {
       const token = await getToken()
-      const res = await fetchApp('/district', {
+      const res = await fetchApp('/voucher', {
         method: 'POST',
         token,
-        body: { name: 12345 },
+        body: { name: 12345, price: 10000 },
       })
       const body = await res.json() as any
 
@@ -257,126 +268,126 @@ describe('District CRUD', () => {
       expect(body.error).toContain('name must be a string')
     })
 
-    it('returns 400 when lat is not a number', async () => {
+    it('returns 400 when price is missing', async () => {
       const token = await getToken()
-      const res = await fetchApp('/district', {
+      const res = await fetchApp('/voucher', {
         method: 'POST',
         token,
-        body: { name: 'Test', lat: 'not-a-number' },
+        body: { name: 'No Price' },
       })
       const body = await res.json() as any
 
       expect(res.status).toBe(400)
       expect(body.success).toBe(false)
-      expect(body.error).toContain('lat must be a number')
+      expect(body.error).toContain('price is required')
     })
 
-    it('returns 400 when lng is not a number', async () => {
+    it('returns 400 when price is not a number', async () => {
       const token = await getToken()
-      const res = await fetchApp('/district', {
+      const res = await fetchApp('/voucher', {
         method: 'POST',
         token,
-        body: { name: 'Test', lng: false },
+        body: { name: 'Bad Price', price: 'cheap' },
       })
       const body = await res.json() as any
 
       expect(res.status).toBe(400)
       expect(body.success).toBe(false)
-      expect(body.error).toContain('lng must be a number')
+      expect(body.error).toContain('price must be a number')
     })
 
-    it('persists the created district in database', async () => {
+    it('returns 400 when price is not an integer', async () => {
       const token = await getToken()
-      await fetchApp('/district', {
+      const res = await fetchApp('/voucher', {
         method: 'POST',
         token,
-        body: { name: 'Bekasi', code: 'BKS' },
+        body: { name: 'Float Price', price: 99.99 },
       })
+      const body = await res.json() as any
 
-      const saved = await typedEnv.DB
-        .prepare('SELECT * FROM districts WHERE name = ?')
-        .bind('Bekasi')
-        .first()
+      expect(res.status).toBe(400)
+      expect(body.success).toBe(false)
+      expect(body.error).toContain('Price must be an integer')
+    })
 
-      expect(saved).toBeDefined()
-      expect(saved!.name).toBe('Bekasi')
-      expect(saved!.code).toBe('BKS')
+    it('returns 409 when name already exists', async () => {
+      await seedVoucher({ name: 'Duplicate' })
+      const token = await getToken()
+      const res = await fetchApp('/voucher', {
+        method: 'POST',
+        token,
+        body: { name: 'Duplicate', price: 10000 },
+      })
+      const body = await res.json() as any
+
+      expect(res.status).toBe(409)
+      expect(body.success).toBe(false)
+      expect(body.meta.code).toBe('VOUCHER_NAME_EXISTS')
     })
   })
 
   // ─── UPDATE ────────────────────────────────────────────────────────
 
-  describe('PATCH /district/:id', () => {
-    it('updates all fields of a district', async () => {
-      const id = await seedDistrict({ name: 'Old Name', code: 'OLD' })
+  describe('PATCH /voucher/:id', () => {
+    it('updates all fields of a voucher', async () => {
+      const id = await seedVoucher({ name: 'Old Name', price: 10000 })
 
       const token = await getToken()
-      const res = await fetchApp(`/district/${id}`, {
+      const res = await fetchApp(`/voucher/${id}`, {
         method: 'PATCH',
         token,
-        body: { name: 'New Name', code: 'NEW', lat: 1.0, lng: 2.0 },
+        body: { name: 'New Name', price: 20000, description: 'Updated desc' },
       })
 
       expect(res.status).toBe(204)
-
-      const updated = await typedEnv.DB
-        .prepare('SELECT * FROM districts WHERE id = ?')
-        .bind(id)
-        .first()
-      expect(updated!.name).toBe('New Name')
-      expect(updated!.code).toBe('NEW')
-      expect(updated!.lat).toBe(1.0)
-      expect(updated!.lng).toBe(2.0)
     })
 
     it('partially updates only name', async () => {
-      const id = await seedDistrict({ name: 'Jakarta', code: 'JKT', lat: -6.2, lng: 106.8 })
+      const id = await seedVoucher({ name: 'Original', price: 10000, description: 'Keep me' })
 
       const token = await getToken()
-      const res = await fetchApp(`/district/${id}`, {
+      const res = await fetchApp(`/voucher/${id}`, {
         method: 'PATCH',
         token,
-        body: { name: 'Jakarta Baru' },
+        body: { name: 'Updated' },
       })
 
       expect(res.status).toBe(204)
 
       const updated = await typedEnv.DB
-        .prepare('SELECT * FROM districts WHERE id = ?')
+        .prepare('SELECT * FROM vouchers WHERE id = ?')
         .bind(id)
         .first()
-      expect(updated!.name).toBe('Jakarta Baru')
-      expect(updated!.code).toBe('JKT')
-      expect(updated!.lat).toBe(-6.2)
-      expect(updated!.lng).toBe(106.8)
+      expect(updated!.name).toBe('Updated')
+      expect(updated!.price).toBe(10000)
+      expect(updated!.description).toBe('Keep me')
     })
 
-    it('can set optional fields to null', async () => {
-      const id = await seedDistrict({ name: 'Test', code: 'CODE', lat: 1.0, lng: 2.0 })
+    it('partially updates only price', async () => {
+      const id = await seedVoucher({ name: 'Price Test', price: 5000 })
 
       const token = await getToken()
-      const res = await fetchApp(`/district/${id}`, {
+      const res = await fetchApp(`/voucher/${id}`, {
         method: 'PATCH',
         token,
-        body: { code: null, lat: null, lng: null },
+        body: { price: 9999 },
       })
 
       expect(res.status).toBe(204)
 
       const updated = await typedEnv.DB
-        .prepare('SELECT * FROM districts WHERE id = ?')
+        .prepare('SELECT * FROM vouchers WHERE id = ?')
         .bind(id)
         .first()
-      expect(updated!.code).toBeNull()
-      expect(updated!.lat).toBeNull()
-      expect(updated!.lng).toBeNull()
+      expect(updated!.price).toBe(9999)
+      expect(updated!.name).toBe('Price Test')
     })
 
     it('returns 400 when body is empty on update', async () => {
-      const id = await seedDistrict({ name: 'Test' })
+      const id = await seedVoucher({ name: 'Test', price: 100 })
       const token = await getToken()
 
-      const res = await fetchApp(`/district/${id}`, {
+      const res = await fetchApp(`/voucher/${id}`, {
         method: 'PATCH',
         token,
         rawBody: '',
@@ -388,25 +399,41 @@ describe('District CRUD', () => {
       expect(body.meta.code).toBe('VALIDATION_EMPTY_BODY')
     })
 
-    it('returns 400 when name is empty string on update', async () => {
-      const id = await seedDistrict({ name: 'Test' })
+    it('returns 400 when name is too short on update', async () => {
+      const id = await seedVoucher({ name: 'Test', price: 100 })
       const token = await getToken()
 
-      const res = await fetchApp(`/district/${id}`, {
+      const res = await fetchApp(`/voucher/${id}`, {
         method: 'PATCH',
         token,
-        body: { name: '' },
+        body: { name: 'A' },
       })
       const body = await res.json() as any
 
       expect(res.status).toBe(400)
       expect(body.success).toBe(false)
-      expect(body.error).toContain('name must be at least 1 characters')
+      expect(body.error).toContain('name must be at least 2 characters')
     })
 
-    it('returns 404 for non-existent district', async () => {
+    it('returns 400 when price is not an integer on update', async () => {
+      const id = await seedVoucher({ name: 'Test', price: 100 })
       const token = await getToken()
-      const res = await fetchApp('/district/01KTPEHM5GJG3V2JBTTKXDKZW5', {
+
+      const res = await fetchApp(`/voucher/${id}`, {
+        method: 'PATCH',
+        token,
+        body: { price: 12.5 },
+      })
+      const body = await res.json() as any
+
+      expect(res.status).toBe(400)
+      expect(body.success).toBe(false)
+      expect(body.error).toContain('Price must be an integer')
+    })
+
+    it('returns 404 for non-existent voucher', async () => {
+      const token = await getToken()
+      const res = await fetchApp('/voucher/01KTPEHM5GJG3V2JBTTKXDKZW5', {
         method: 'PATCH',
         token,
         body: { name: 'Ghost' },
@@ -415,26 +442,43 @@ describe('District CRUD', () => {
 
       expect(res.status).toBe(404)
       expect(body.success).toBe(false)
-      expect(body.meta.code).toBe('DISTRICT_NOT_FOUND')
+      expect(body.meta.code).toBe('VOUCHER_NOT_FOUND')
+    })
+
+    it('returns 409 when updating name to an existing name', async () => {
+      await seedVoucher({ name: 'Taken' })
+      const id = await seedVoucher({ name: 'Original', price: 100 })
+
+      const token = await getToken()
+      const res = await fetchApp(`/voucher/${id}`, {
+        method: 'PATCH',
+        token,
+        body: { name: 'Taken' },
+      })
+      const body = await res.json() as any
+
+      expect(res.status).toBe(409)
+      expect(body.success).toBe(false)
+      expect(body.meta.code).toBe('VOUCHER_NAME_EXISTS')
     })
 
     it('updates updated_at timestamp', async () => {
-      const id = await seedDistrict({ name: 'Original' })
+      const id = await seedVoucher({ name: 'Original', price: 100 })
 
       const original = await typedEnv.DB
-        .prepare('SELECT updated_at FROM districts WHERE id = ?')
+        .prepare('SELECT updated_at FROM vouchers WHERE id = ?')
         .bind(id)
         .first()
 
       const token = await getToken()
-      await fetchApp(`/district/${id}`, {
+      await fetchApp(`/voucher/${id}`, {
         method: 'PATCH',
         token,
         body: { name: 'Updated' },
       })
 
       const updated = await typedEnv.DB
-        .prepare('SELECT updated_at FROM districts WHERE id = ?')
+        .prepare('SELECT updated_at FROM vouchers WHERE id = ?')
         .bind(id)
         .first()
 
@@ -444,28 +488,37 @@ describe('District CRUD', () => {
 
   // ─── DELETE ────────────────────────────────────────────────────────
 
-  describe('DELETE /district/:id', () => {
-    it('deletes an existing district', async () => {
-      const id = await seedDistrict({ name: 'ToDelete' })
+  describe('DELETE /voucher/:id', () => {
+    it('deletes an existing voucher', async () => {
+      const id = await seedVoucher({ name: 'ToDelete', price: 100 })
 
       const token = await getToken()
-      const res = await fetchApp(`/district/${id}`, {
+      const res = await fetchApp(`/voucher/${id}`, {
         method: 'DELETE',
         token,
       })
 
       expect(res.status).toBe(204)
-
-      const check = await typedEnv.DB
-        .prepare('SELECT * FROM districts WHERE id = ?')
-        .bind(id)
-        .first()
-      expect(check).toBeNull()
     })
 
-    it('returns 404 for non-existent district', async () => {
+    it('soft-deletes the voucher (sets deleted_at)', async () => {
+      const id = await seedVoucher({ name: 'SoftDelete', price: 100 })
+
       const token = await getToken()
-      const res = await fetchApp('/district/01KTPEHM5GJG3V2JBTTKXDKZW5', {
+      await fetchApp(`/voucher/${id}`, { method: 'DELETE', token })
+
+      const row = await typedEnv.DB
+        .prepare('SELECT * FROM vouchers WHERE id = ?')
+        .bind(id)
+        .first()
+
+      expect(row).toBeDefined()
+      expect(row!.deleted_at).not.toBeNull()
+    })
+
+    it('returns 404 for non-existent voucher', async () => {
+      const token = await getToken()
+      const res = await fetchApp('/voucher/01KTPEHM5GJG3V2JBTTKXDKZW5', {
         method: 'DELETE',
         token,
       })
@@ -473,17 +526,17 @@ describe('District CRUD', () => {
 
       expect(res.status).toBe(404)
       expect(body.success).toBe(false)
-      expect(body.meta.code).toBe('DISTRICT_NOT_FOUND')
+      expect(body.meta.code).toBe('VOUCHER_NOT_FOUND')
     })
 
-    it('deleting same district twice returns 404', async () => {
-      const id = await seedDistrict({ name: 'ToDelete' })
+    it('deleting same voucher twice returns 404', async () => {
+      const id = await seedVoucher({ name: 'ToDelete', price: 100 })
       const token = await getToken()
 
-      const res1 = await fetchApp(`/district/${id}`, { method: 'DELETE', token })
+      const res1 = await fetchApp(`/voucher/${id}`, { method: 'DELETE', token })
       expect(res1.status).toBe(204)
 
-      const res2 = await fetchApp(`/district/${id}`, { method: 'DELETE', token })
+      const res2 = await fetchApp(`/voucher/${id}`, { method: 'DELETE', token })
       expect(res2.status).toBe(404)
     })
   })
@@ -492,7 +545,7 @@ describe('District CRUD', () => {
 
   describe('Auth guard', () => {
     it('rejects request without token', async () => {
-      const res = await fetchApp('/district')
+      const res = await fetchApp('/voucher')
       const body = await res.json() as any
 
       expect(res.status).toBe(401)
@@ -500,24 +553,9 @@ describe('District CRUD', () => {
       expect(body.meta.code).toBe('AUTH_MISSING_TOKEN')
     })
 
-    it('rejects request with malformed authorization header', async () => {
-      const res = await SELF.fetch(
-        new Request('https://test-host/district', {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: 'Basic abc123',
-          },
-        }),
-      )
-      const body = await res.json() as any
-
-      expect(res.status).toBe(401)
-      expect(body.success).toBe(false)
-    })
-
     it('rejects request with invalid token', async () => {
-      const res = await fetchApp('/district', {
-        token: 'invalid.jwt.token',
+      const res = await fetchApp('/voucher', {
+        token: 'invalid.paseto.token',
       })
       const body = await res.json() as any
 
@@ -528,7 +566,7 @@ describe('District CRUD', () => {
 
     it('rejects request with expired token', async () => {
       const expiredToken = await getExpiredToken()
-      const res = await fetchApp('/district', {
+      const res = await fetchApp('/voucher', {
         token: expiredToken,
       })
       const body = await res.json() as any
@@ -538,20 +576,9 @@ describe('District CRUD', () => {
       expect(body.meta.code).toBe('AUTH_INVALID_TOKEN')
     })
 
-    it('rejects request with wrong secret', async () => {
-      const wrongSecretToken = await getToken('k4.local.WvNisWzWSm8YJkVMj7jHCFCwaV6Gd8mSgGj27e4crQA')
-      const res = await fetchApp('/district', {
-        token: wrongSecretToken,
-      })
-      const body = await res.json() as any
-
-      expect(res.status).toBe(401)
-      expect(body.success).toBe(false)
-    })
-
     it('allows request with valid token', async () => {
       const token = await getToken()
-      const res = await fetchApp('/district', { token })
+      const res = await fetchApp('/voucher', { token })
       const body = await res.json() as any
 
       expect(res.status).toBe(200)

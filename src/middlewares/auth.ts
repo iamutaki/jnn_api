@@ -1,5 +1,5 @@
 import type { Context, Next } from 'hono'
-import { jwtUtil } from '../lib/jwt'
+import { tokenUtil } from '../lib/token'
 import { response } from '../lib/response'
 import type { Env } from '../types'
 
@@ -13,7 +13,7 @@ export const authMiddleware = async (c: Context<Env>, next: Next) => {
   const token = authHeader.replace('Bearer ', '')
 
   try {
-    const payload = jwtUtil.verify(token, c.env.JWT_SECRET)
+    const payload = tokenUtil.verify(token, c.env.TOKEN_SECRET)
     c.set('user', payload)
     await next()
   } catch {

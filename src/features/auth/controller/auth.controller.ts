@@ -25,7 +25,7 @@ export const authController = {
     }
 
     try {
-      const data = await authService.login(c.env.DB, result.body as any, c.env.JWT_SECRET)
+      const data = await authService.login(c.env.DB, result.body as any, c.env.TOKEN_SECRET)
       return response.success(c, data)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Login failed'
@@ -43,7 +43,7 @@ export const authController = {
     }
 
     try {
-      const data = await authService.refresh(c.env.DB, result.body as any, c.env.JWT_SECRET)
+      const data = await authService.refresh(c.env.DB, result.body as any, c.env.TOKEN_SECRET)
       return response.success(c, data)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Refresh failed'

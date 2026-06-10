@@ -1,4 +1,4 @@
-import type { JwtPayload } from './lib/jwt'
+import type { TokenPayload } from './lib/token'
 
 /**
  * Hono environment bindings type.
@@ -14,12 +14,12 @@ type Bindings = {
   API_VERSION: string
   ENVIRONMENT: string
   // Secrets (from `wrangler secret put` / .env)
-  JWT_SECRET: string
+  TOKEN_SECRET: string
 }
 
 export type Env = {
   Bindings: Bindings
   Variables: {
-    user: JwtPayload
+    user: TokenPayload
   }
 }

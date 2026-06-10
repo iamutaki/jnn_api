@@ -77,6 +77,7 @@ app.get('/', (c) => {
       profile: '/v1/profile',
       voucher: '/v1/voucher',
       reseller: '/v1/reseller',
+      notification: '/v1/notification',
     },
   })
 })

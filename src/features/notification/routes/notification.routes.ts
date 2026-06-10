@@ -8,6 +8,7 @@ const notificationRoutes = new Hono<Env>()
 notificationRoutes.use('/*', authMiddleware)
 
 notificationRoutes.get('/', notificationController.list)
+notificationRoutes.post('/send', notificationController.send)
 notificationRoutes.patch('/:id/read', notificationController.markRead)
 
 export { notificationRoutes }

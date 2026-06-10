@@ -1,3 +1,5 @@
+import { ulid } from '../../../lib/ulid'
+import { sendFcm } from '../../../lib/fcm'
 import type { Notification, NotificationListItem, NotifSummary } from '../notification.types'
 
 interface NotifRow {
@@ -31,6 +33,19 @@ function toListItem(row: NotifRow): NotificationListItem {
   }
 }
 
+interface SendParams {
+  db: D1Database
+  projectId: string
+  clientEmail: string
+  privateKey: string
+  targetUserId: string
+  title: string
+  body: string
+  type?: string
+  image?: string
+  actionUrl?: string
+}
+
 export const notificationService = {
   list: async (db: D1Database, userId: string, page = 1, limit = 20): Promise<{ items: NotificationListItem[]; summary: NotifSummary }> => {
     const offset = (page - 1) * limit
@@ -57,6 +72,38 @@ export const notificationService = {
         unread: unreadRow?.unread ?? 0,
       },
     }
+  },
+
+  send: async (params: SendParams): Promise<{ sent: number; failed: number }> => {
+    const { db, projectId, clientEmail, privateKey, targetUserId, title, body, type, image, actionUrl } = params
+
+    const devices = await db
+      .prepare('SELECT id, udid, fcm_token FROM device_tokens WHERE user_id = ? AND fcm_token IS NOT NULL AND deleted_at IS NULL')
+      .bind(targetUserId)
+      .all<{ id: string; udid: string; fcm_token: string }>()
+
+    if (devices.results.length === 0) return { sent: 0, failed: 0 }
+
+    const fcmTokens = devices.results.map(d => d.fcm_token)
+    const { success, failed } = await sendFcm(projectId, clientEmail, privateKey, fcmTokens, title, body, { image, actionUrl })
+
+    const stmts: any[] = []
+
+    for (const device of devices.results) {
+      const isSuccess = success.includes(device.fcm_token)
+      stmts.push(
+        db.prepare(
+          'INSERT INTO notifications (id, user_id, title, body, type, udid, fcm_token, image, action_url, is_read) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        ).bind(
+          ulid(), targetUserId, title, body, type ?? 'general',
+          device.udid, device.fcm_token, image ?? null, actionUrl ?? null,
+          isSuccess ? 0 : 1,
+        ),
+      )
+    }
+
+    await db.batch(stmts)
+    return { sent: success.length, failed: failed.length }
   },
 
   markRead: async (db: D1Database, userId: string, id: string): Promise<boolean> => {

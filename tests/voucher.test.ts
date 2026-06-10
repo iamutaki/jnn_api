@@ -105,7 +105,9 @@ describe('Voucher CRUD', () => {
       expect(body.success).toBe(true)
       expect(body.data).toHaveLength(2)
       expect(body.data[0].name).toBe('Voucher B')
+      expect(body.data[0].price).toBe(20000)
       expect(body.data[1].name).toBe('Voucher A')
+      expect(body.data[1].price).toBe(10000)
     })
   })
 

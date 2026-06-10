@@ -2,8 +2,8 @@ import { ulid } from '../../../lib/ulid'
 import type { Voucher, CreateVoucherRequest, UpdateVoucherRequest } from '../voucher.types'
 
 export const voucherService = {
-  getAll: async (db: D1Database): Promise<Pick<Voucher, 'id' | 'name'>[]> => {
-    const result = await db.prepare('SELECT id, name FROM vouchers WHERE deleted_at IS NULL ORDER BY created_at DESC').all<Pick<Voucher, 'id' | 'name'>>()
+  getAll: async (db: D1Database): Promise<Pick<Voucher, 'id' | 'name' | 'price'>[]> => {
+    const result = await db.prepare('SELECT id, name, price FROM vouchers WHERE deleted_at IS NULL ORDER BY created_at DESC').all<Pick<Voucher, 'id' | 'name' | 'price'>>()
     return result.results
   },
 

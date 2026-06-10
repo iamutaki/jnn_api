@@ -61,6 +61,6 @@ export const profileController = {
       return response.error(c, 'Profile not found', 404, 'PROFILE_NOT_FOUND')
     }
 
-    return response.success(c, profile)
+    return response.noContent(c, 204)
   },
 }

@@ -67,6 +67,7 @@ async function applyMigrations() {
 }
 
 async function cleanTable() {
+  await typedEnv.DB.prepare('DELETE FROM sub_districts').run()
   await typedEnv.DB.prepare('DELETE FROM districts').run()
 }
 
@@ -474,6 +475,30 @@ describe('District CRUD', () => {
       expect(res.status).toBe(404)
       expect(body.success).toBe(false)
       expect(body.meta.code).toBe('DISTRICT_NOT_FOUND')
+    })
+
+    it('returns 409 when district has sub-districts', async () => {
+      const districtId = await seedDistrict({ name: 'Has Desa' })
+      const subId = crypto.randomUUID().replace(/-/g, '').slice(0, 26)
+      await typedEnv.DB
+        .prepare('INSERT INTO sub_districts (id, district_id, name) VALUES (?, ?, ?)')
+        .bind(subId, districtId, 'Child Desa')
+        .run()
+
+      const token = await getToken()
+      const res = await fetchApp(`/district/${districtId}`, { method: 'DELETE', token })
+      const body = await res.json() as any
+
+      expect(res.status).toBe(409)
+      expect(body.success).toBe(false)
+      expect(body.meta.code).toBe('DISTRICT_HAS_SUB_DISTRICTS')
+      expect(body.error).toContain('sub-districts')
+
+      const stillExists = await typedEnv.DB
+        .prepare('SELECT * FROM districts WHERE id = ?')
+        .bind(districtId)
+        .first()
+      expect(stillExists).not.toBeNull()
     })
 
     it('deleting same district twice returns 404', async () => {

@@ -27,6 +27,12 @@ export const districtService = {
     return db.prepare('SELECT * FROM districts WHERE id = ?').bind(id).first<District>()
   },
 
+  /** Check if any sub-districts reference this district */
+  _hasSubDistricts: async (db: D1Database, id: string): Promise<boolean> => {
+    const row = await db.prepare('SELECT 1 FROM sub_districts WHERE district_id = ? AND deleted_at IS NULL').bind(id).first()
+    return row !== null
+  },
+
   /** Check if a name already exists. Optionally exclude an id (for update self-exclusion). */
   _nameExists: async (db: D1Database, name: string, excludeId?: string): Promise<boolean> => {
     if (excludeId) {
@@ -62,11 +68,7 @@ export const districtService = {
     return true
   },
 
-  remove: async (db: D1Database, id: string): Promise<boolean> => {
-    const existing = await districtService._getFull(db, id)
-    if (!existing) return false
-
+  remove: async (db: D1Database, id: string): Promise<void> => {
     await db.prepare('DELETE FROM districts WHERE id = ?').bind(id).run()
-    return true
   },
 }

@@ -79,12 +79,18 @@ export const roleController = {
 
   remove: async (c: Context<Env>) => {
     const id = c.req.param('id') ?? ''
-    const deleted = await roleService.remove(c.env.DB, id)
 
-    if (!deleted) {
+    const existing = await roleService._getFull(c.env.DB, id)
+    if (!existing) {
       return response.error(c, 'Role not found', 404, 'ROLE_NOT_FOUND')
     }
 
+    const hasUsers = await roleService._hasUsers(c.env.DB, id)
+    if (hasUsers) {
+      return response.error(c, 'Cannot delete role that is assigned to users. Remove all user assignments first.', 409, 'ROLE_HAS_USERS')
+    }
+
+    await roleService.remove(c.env.DB, id)
     return response.noContent(c, 204)
   },
 }

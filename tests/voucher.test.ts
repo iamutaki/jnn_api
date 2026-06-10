@@ -313,7 +313,7 @@ describe('Voucher CRUD', () => {
     })
 
     it('returns 409 when name already exists', async () => {
-      await seedVoucher({ name: 'Duplicate' })
+      await seedVoucher({ name: 'Duplicate', price: 10000 })
       const token = await getToken()
       const res = await fetchApp('/voucher', {
         method: 'POST',
@@ -448,7 +448,7 @@ describe('Voucher CRUD', () => {
     })
 
     it('returns 409 when updating name to an existing name', async () => {
-      await seedVoucher({ name: 'Taken' })
+      await seedVoucher({ name: 'Taken', price: 10000 })
       const id = await seedVoucher({ name: 'Original', price: 100 })
 
       const token = await getToken()

@@ -85,12 +85,18 @@ export const districtController = {
 
   remove: async (c: Context<Env>) => {
     const id = c.req.param('id') ?? ''
-    const deleted = await districtService.remove(c.env.DB, id)
 
-    if (!deleted) {
+    const existing = await districtService._getFull(c.env.DB, id)
+    if (!existing) {
       return response.error(c, 'District not found', 404, 'DISTRICT_NOT_FOUND')
     }
 
+    const hasSubDistricts = await districtService._hasSubDistricts(c.env.DB, id)
+    if (hasSubDistricts) {
+      return response.error(c, 'Cannot delete district with existing sub-districts. Remove all sub-districts first.', 409, 'DISTRICT_HAS_SUB_DISTRICTS')
+    }
+
+    await districtService.remove(c.env.DB, id)
     return response.noContent(c, 204)
   },
 }

@@ -24,6 +24,11 @@ export const roleService = {
     return row !== null
   },
 
+  _hasUsers: async (db: D1Database, id: string): Promise<boolean> => {
+    const row = await db.prepare('SELECT 1 FROM user_roles WHERE role_id = ?').bind(id).first()
+    return row !== null
+  },
+
   create: async (db: D1Database, body: CreateRoleRequest): Promise<void> => {
     const id = ulid()
     await db
@@ -47,11 +52,7 @@ export const roleService = {
     return true
   },
 
-  remove: async (db: D1Database, id: string): Promise<boolean> => {
-    const existing = await roleService._getFull(db, id)
-    if (!existing) return false
-
+  remove: async (db: D1Database, id: string): Promise<void> => {
     await db.prepare('DELETE FROM roles WHERE id = ?').bind(id).run()
-    return true
   },
 }

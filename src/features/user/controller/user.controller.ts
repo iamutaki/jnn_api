@@ -25,6 +25,26 @@ const UPDATE_SCHEMA = {
   avatar: { type: 'string' as const },
 }
 
+function validateRoleIds(body: Record<string, unknown>): string[] | null {
+  const roleIds = body.roleIds
+  if (roleIds === undefined || roleIds === null) return []
+  if (!Array.isArray(roleIds)) return null
+  for (const id of roleIds) {
+    if (typeof id !== 'string' || id.length === 0) return null
+  }
+  return roleIds as string[]
+}
+
+async function checkRolesExist(db: D1Database, ids: string[]): Promise<string | null> {
+  if (ids.length === 0) return null
+  const placeholders = ids.map(() => '?').join(',')
+  const result = await db.prepare(`SELECT id FROM roles WHERE id IN (${placeholders})`).bind(...ids).all<{ id: string }>()
+  const found = new Set(result.results.map(r => r.id))
+  const missing = ids.filter(id => !found.has(id))
+  if (missing.length > 0) return `Roles not found: ${missing.join(', ')}`
+  return null
+}
+
 async function checkUniqueFields(c: Context<Env>, body: Record<string, unknown>, excludeId?: string): Promise<Response | null> {
   const uniqueFields = ['username', 'email', 'phone'] as const
   for (const field of uniqueFields) {
@@ -69,7 +89,17 @@ export const userController = {
     const conflict = await checkUniqueFields(c, result.body)
     if (conflict) return conflict
 
-    await userService.create(c.env.DB, result.body as any)
+    const roleIds = validateRoleIds(result.body)
+    if (roleIds === null) {
+      return response.error(c, 'roleIds must be an array of strings', 400, 'USER_VALIDATION_ERROR')
+    }
+
+    const roleErr = await checkRolesExist(c.env.DB, roleIds)
+    if (roleErr) {
+      return response.error(c, roleErr, 400, 'USER_VALIDATION_ERROR')
+    }
+
+    await userService.create(c.env.DB, result.body as any, roleIds)
     return response.noContent(c, 201)
   },
 
@@ -87,7 +117,17 @@ export const userController = {
     const conflict = await checkUniqueFields(c, result.body, id)
     if (conflict) return conflict
 
-    const updated = await userService.update(c.env.DB, id, result.body as any)
+    const roleIds = validateRoleIds(result.body)
+    if (roleIds === null) {
+      return response.error(c, 'roleIds must be an array of strings', 400, 'USER_VALIDATION_ERROR')
+    }
+
+    const roleErr = await checkRolesExist(c.env.DB, roleIds)
+    if (roleErr) {
+      return response.error(c, roleErr, 400, 'USER_VALIDATION_ERROR')
+    }
+
+    const updated = await userService.update(c.env.DB, id, result.body as any, roleIds)
 
     if (!updated) {
       return response.error(c, 'User not found', 404, 'USER_NOT_FOUND')

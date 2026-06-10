@@ -39,16 +39,23 @@ export const userService = {
     return row !== null
   },
 
-  create: async (db: D1Database, body: CreateUserRequest): Promise<void> => {
+  create: async (db: D1Database, body: CreateUserRequest, roleIds: string[]): Promise<void> => {
     const id = ulid()
     const hashed = await hashPassword(body.password)
-    await db
-      .prepare('INSERT INTO users (id, username, password, name, phone, email, address, avatar) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-      .bind(id, body.username, hashed, body.name, body.phone ?? null, body.email ?? null, body.address ?? null, body.avatar ?? null)
-      .run()
+
+    const stmts: any[] = [
+      db.prepare('INSERT INTO users (id, username, password, name, phone, email, address, avatar) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+        .bind(id, body.username, hashed, body.name, body.phone ?? null, body.email ?? null, body.address ?? null, body.avatar ?? null),
+    ]
+
+    for (const roleId of roleIds) {
+      stmts.push(db.prepare('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)').bind(id, roleId))
+    }
+
+    await db.batch(stmts)
   },
 
-  update: async (db: D1Database, id: string, body: UpdateUserRequest): Promise<boolean> => {
+  update: async (db: D1Database, id: string, body: UpdateUserRequest, roleIds?: string[]): Promise<boolean> => {
     const existing = await userService._getFull(db, id)
     if (!existing) return false
 
@@ -60,10 +67,19 @@ export const userService = {
     const address = body.address !== undefined ? body.address : existing.address
     const avatar = body.avatar !== undefined ? body.avatar : existing.avatar
 
-    await db
-      .prepare('UPDATE users SET username = ?, password = ?, name = ?, phone = ?, email = ?, address = ?, avatar = ?, updated_at = datetime(\'now\') WHERE id = ?')
-      .bind(username, password, name, phone, email, address, avatar, id)
-      .run()
+    const stmts: any[] = [
+      db.prepare('UPDATE users SET username = ?, password = ?, name = ?, phone = ?, email = ?, address = ?, avatar = ?, updated_at = datetime(\'now\') WHERE id = ?')
+        .bind(username, password, name, phone, email, address, avatar, id),
+    ]
+
+    if (roleIds !== undefined) {
+      stmts.push(db.prepare('DELETE FROM user_roles WHERE user_id = ?').bind(id))
+      for (const roleId of roleIds) {
+        stmts.push(db.prepare('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)').bind(id, roleId))
+      }
+    }
+
+    await db.batch(stmts)
 
     return true
   },

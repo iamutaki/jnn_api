@@ -93,6 +93,8 @@ export const resellerService = {
         .bind(id, body.username, hashed, body.name, body.phone ?? null, body.avatar ?? null),
       db.prepare('INSERT INTO resellers (id, venue_photo, sub_district_id, commission_rate, commission_amount, lat, lng, phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
         .bind(id, body.venuePhoto ?? null, body.subDistrictId, body.commissionRate ?? 0, body.commissionAmount ?? 0, body.lat ?? null, body.lng ?? null, body.phone ?? null),
+      db.prepare('INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)')
+        .bind(id, '01KTRS8AD1G6JJBTH8EP81R4C0'),
     ])
   },
 

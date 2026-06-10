@@ -37,6 +37,7 @@ export interface CreateUserRequest {
   email?: string
   address?: string
   avatar?: string
+  roleIds?: string[]
 }
 
 export interface UpdateUserRequest {
@@ -47,4 +48,5 @@ export interface UpdateUserRequest {
   email?: string | null
   address?: string | null
   avatar?: string | null
+  roleIds?: string[]
 }

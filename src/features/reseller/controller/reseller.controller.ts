@@ -44,7 +44,6 @@ function validateResellerFields(body: Record<string, unknown>): string | null {
 const UPDATE_SCHEMA = {
   name: { type: 'string' as const, minLength: 2 },
   username: { type: 'string' as const, minLength: 4 },
-  password: { type: 'string' as const, minLength: 6 },
   phone: { type: 'string' as const },
   avatar: { type: 'string' as const },
   venuePhoto: { type: 'string' as const },
@@ -118,6 +117,13 @@ export const resellerController = {
 
     const body = await safeJsonBody(c)
     if (body instanceof Response) return body
+
+    const password = body.password
+    if (password !== undefined && password !== null) {
+      if (typeof password !== 'string' || password.length < 6) {
+        return response.error(c, 'Password must be at least 6 characters', 400, 'RESELLER_VALIDATION_ERROR')
+      }
+    }
 
     const result = validate(body, UPDATE_SCHEMA)
     if (!result.valid) {

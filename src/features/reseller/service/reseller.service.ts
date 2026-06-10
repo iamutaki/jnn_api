@@ -96,7 +96,7 @@ export const resellerService = {
     const userVals: any[] = []
     if (body.name !== undefined) { userFields.push('name = ?'); userVals.push(body.name) }
     if (body.username !== undefined) { userFields.push('username = ?'); userVals.push(body.username) }
-    if (body.password !== undefined) { userFields.push('password = ?'); userVals.push(await hashPassword(body.password)) }
+    if (body.password !== undefined && body.password !== null) { userFields.push('password = ?'); userVals.push(await hashPassword(body.password)) }
     if (body.avatar !== undefined) { userFields.push('avatar = ?'); userVals.push(body.avatar) }
     if (body.phone !== undefined) { userFields.push('phone = ?'); userVals.push(body.phone) }
     if (userFields.length > 0) {

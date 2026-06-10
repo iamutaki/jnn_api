@@ -16,6 +16,7 @@ import { deviceRoutes } from './features/device/routes/device.routes'
 import { notificationRoutes } from './features/notification/routes/notification.routes'
 import { voucherRoutes } from './features/voucher/routes/voucher.routes'
 import { subDistrictVoucherRoutes } from './features/sub_district_voucher/routes/sub_district_voucher.routes'
+import { resellerRoutes } from './features/reseller/routes/reseller.routes'
 
 const app = new Hono<Env>()
 
@@ -54,6 +55,7 @@ v1.route('/notification', notificationRoutes)
 v1.route('/voucher', voucherRoutes)
 v1.route('/sub-district', subDistrictRoutes)
 v1.route('/sub-district/:subDistrictId/voucher', subDistrictVoucherRoutes)
+v1.route('/reseller', resellerRoutes)
 
 app.route('/v1', v1)
 
@@ -74,6 +76,7 @@ app.get('/', (c) => {
       user_role: '/v1/user-role',
       profile: '/v1/profile',
       voucher: '/v1/voucher',
+      reseller: '/v1/reseller',
     },
   })
 })

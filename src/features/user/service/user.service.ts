@@ -10,7 +10,7 @@ function toSafeUser(user: User): SafeUser {
 export const userService = {
   getAll: async (db: D1Database): Promise<SafeUserListItem[]> => {
     const result = await db.prepare(`
-      SELECT id, username, name FROM users ORDER BY created_at DESC
+      SELECT id, username, name, avatar FROM users ORDER BY created_at DESC
     `).all<SafeUserListItem>()
     return result.results
   },

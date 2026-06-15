@@ -132,6 +132,8 @@ export async function sendFcm(
     if (res.ok) {
       success.push(fcmToken)
     } else {
+      const errBody = await res.text()
+      console.log(`[fcm] push failed: token=${fcmToken.slice(0, 20)}... status=${res.status} body=${errBody}`)
       failed.push(fcmToken)
     }
   }

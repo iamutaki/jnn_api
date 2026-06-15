@@ -82,10 +82,16 @@ export const notificationService = {
       .bind(targetUserId)
       .all<{ id: string; udid: string; fcm_token: string }>()
 
+    console.log(`[notif] userId=${targetUserId} devices=${devices.results.length}`)
     if (devices.results.length === 0) return { sent: 0, failed: 0 }
 
     const fcmTokens = devices.results.map(d => d.fcm_token)
+    fcmTokens.forEach(t => console.log(`[notif] fcm_token=${t.slice(0, 20)}... projectId=${projectId}`))
+
     const { success, failed } = await sendFcm(projectId, clientEmail, privateKey, fcmTokens, title, body, { image, actionUrl })
+
+    console.log(`[notif] sent=${success.length} failed=${failed.length}`)
+    failed.forEach(t => console.log(`[notif] failed_token=${t.slice(0, 20)}...`))
 
     const stmts: any[] = []
 

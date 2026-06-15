@@ -178,19 +178,34 @@ export const digitalVoucherService = {
     return row !== null
   },
 
-  // Returns the subset of hashes that already have an AVAILABLE, non-deleted row.
-  // Same scope as the unique index → these block insertion.
-  _conflictingHashes: async (db: D1Database, hashes: string[]): Promise<Set<string>> => {
-    if (hashes.length === 0) return new Set()
-    const placeholders = hashes.map(() => '?').join(',')
-    const rows = await db
-      .prepare(
-        `SELECT DISTINCT code_hash FROM digital_vouchers
-          WHERE code_hash IN (${placeholders}) AND status = 'available' AND deleted_at IS NULL`,
-      )
-      .bind(...hashes)
-      .all<{ code_hash: string }>()
-    return new Set(rows.results.map((r) => r.code_hash))
+  // Returns the subset of hashes that already have an AVAILABLE, non-deleted row
+  // for the SAME (hash, sub_district_id) pair. Same scope as the unique index.
+  _conflictingPairs: async (
+    db: D1Database,
+    pairs: { hash: string; subDistrictId: string | null }[],
+  ): Promise<Set<string>> => {
+    if (pairs.length === 0) return new Set()
+
+    const orClauses: string[] = []
+    const bind: unknown[] = []
+
+    for (const p of pairs) {
+      if (p.subDistrictId !== null) {
+        orClauses.push('(code_hash = ? AND sub_district_id = ?)')
+        bind.push(p.hash, p.subDistrictId)
+      } else {
+        orClauses.push('(code_hash = ? AND sub_district_id IS NULL)')
+        bind.push(p.hash)
+      }
+    }
+
+    const sql = `SELECT code_hash, sub_district_id FROM digital_vouchers
+                  WHERE (${orClauses.join(' OR ')})
+                    AND status = 'available' AND deleted_at IS NULL`
+
+    const rows = await db.prepare(sql).bind(...bind).all<{ code_hash: string; sub_district_id: string | null }>()
+
+    return new Set(rows.results.map((r) => `${r.code_hash}:${r.sub_district_id ?? ''}`))
   },
 
   // Encrypt + hash a single item (shared by single + bulk).
@@ -245,9 +260,11 @@ export const digitalVoucherService = {
     const importId = ulid()
     const prepared = await digitalVoucherService._prepare(env, body)
 
-    // Conflict check (same scope as unique index).
-    const conflicting = await digitalVoucherService._conflictingHashes(db, [prepared.hash])
-    if (conflicting.has(prepared.hash)) {
+    // Conflict check per (hash, sub_district_id) pair.
+    const conflicting = await digitalVoucherService._conflictingPairs(db, [
+      { hash: prepared.hash, subDistrictId: prepared.subDistrictId },
+    ])
+    if (conflicting.size > 0) {
       throw Object.assign(new Error('CODE_EXISTS'), { code: 'DV_CODE_EXISTS' })
     }
 
@@ -276,8 +293,11 @@ export const digitalVoucherService = {
       seen.add(p.hash)
     }
 
-    // External conflicts (existing available row with same code).
-    const conflicting = await digitalVoucherService._conflictingHashes(db, prepared.map((p) => p.hash))
+    // External conflicts — check per (hash, sub_district_id) pair.
+    const conflicting = await digitalVoucherService._conflictingPairs(
+      db,
+      prepared.map((p) => ({ hash: p.hash, subDistrictId: p.subDistrictId })),
+    )
     if (conflicting.size > 0) throw Object.assign(new Error('CODE_EXISTS'), { code: 'DV_CODE_EXISTS' })
 
     // Group by voucherId — each group gets its own import record.

@@ -84,6 +84,23 @@ interface FcmOptions {
   data?: Record<string, string>
 }
 
+/**
+ * Fail fast if any Firebase env var is unset. Without this, a missing key
+ * produces an opaque chain: empty JWT → OAuth error → `Bearer undefined` →
+ * FCM 401, which looks like a token problem instead of a config problem.
+ * Throws an Error naming every missing var, matching the voucher-crypto
+ * convention (see src/lib/voucher-crypto.ts).
+ */
+function assertFirebaseConfig(projectId: string, clientEmail: string, privateKey: string): void {
+  const missing: string[] = []
+  if (!projectId) missing.push('FIREBASE_PROJECT_ID')
+  if (!clientEmail) missing.push('FIREBASE_CLIENT_EMAIL')
+  if (!privateKey) missing.push('FIREBASE_PRIVATE_KEY')
+  if (missing.length > 0) {
+    throw new Error(`Missing Firebase config: ${missing.join(', ')}`)
+  }
+}
+
 export async function sendFcm(
   projectId: string,
   clientEmail: string,
@@ -93,6 +110,7 @@ export async function sendFcm(
   body: string,
   options?: FcmOptions,
 ): Promise<{ success: string[]; failed: string[] }> {
+  assertFirebaseConfig(projectId, clientEmail, privateKey)
   const { token } = await getAccessToken(clientEmail, privateKey)
 
   const success: string[] = []

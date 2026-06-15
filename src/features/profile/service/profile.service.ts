@@ -1,4 +1,4 @@
-import type { ProfileResponse } from '../profile.types'
+import type { ProfileResponse, ProfileResellerResponse } from '../profile.types'
 import { hashPassword, verifyPassword } from '../../../lib/password'
 
 function rowToProfile(row: any): ProfileResponse {
@@ -28,6 +28,24 @@ export const profileService = {
     const row: any = await db.prepare(PROFILE_QUERY).bind(username).first()
     if (!row) return null
     return rowToProfile(row)
+  },
+
+  getReseller: async (db: D1Database, username: string): Promise<ProfileResellerResponse | null> => {
+    const row: any = await db
+      .prepare(`
+        SELECT r.sub_district_id, r.lat, r.lng
+        FROM resellers r
+        JOIN users u ON u.id = r.id
+        WHERE u.username = ? AND r.deleted_at IS NULL
+      `)
+      .bind(username)
+      .first()
+    if (!row) return null
+    return {
+      subDistrictId: row.sub_district_id,
+      lat: row.lat,
+      lon: row.lng,
+    }
   },
 
   update: async (db: D1Database, username: string, body: Record<string, unknown>): Promise<ProfileResponse | null> => {

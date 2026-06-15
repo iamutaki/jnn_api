@@ -10,7 +10,7 @@ resellerVoucherSaleRoutes.use('/*', authMiddleware)
 /**
  * Endpoints:
  *
- * GET    /                          → List sales (header only)
+ * GET    /                          → List sales (header only, cursor-based pagination: ?cursor=<ulid>&limit=20)
  * GET    /:id                       → Get one sale (items + allocated code metadata)
  * POST   /                          → Create sale (draft)  { resellerId, saleDate, saleMonth?, saleNo?, items[{voucherId, qty, unitPrice?}] }
  * PATCH  /:id                       → Edit (draft only) { resellerId?, saleDate?, saleMonth?, saleNo?, items? } — atomic single txn

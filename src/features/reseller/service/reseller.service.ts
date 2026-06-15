@@ -16,6 +16,7 @@ export const resellerService = {
     `).all()
 
     return (result.results as any[]).map((row: any) => ({
+      id: row.id,
       user: { id: row.id, name: row.name, username: row.username, avatar: row.avatar },
       subDistrict: { id: row.sd_id ?? '', name: row.sd_name ?? '' },
     }))

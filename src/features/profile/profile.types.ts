@@ -19,3 +19,9 @@ export interface UpdateProfileRequest {
 export interface UpdateAvatarRequest {
   avatar: string
 }
+
+export interface ProfileResellerResponse {
+  subDistrictId: string | null
+  lat: number | null
+  lon: number | null
+}

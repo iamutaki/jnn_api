@@ -20,6 +20,7 @@ export interface ResellerListItemUser {
 }
 
 export interface ResellerListItem {
+  id: string
   user: ResellerListItemUser
   subDistrict: { id: string; name: string }
 }

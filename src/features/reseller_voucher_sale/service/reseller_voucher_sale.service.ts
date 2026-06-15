@@ -25,16 +25,36 @@ export class SaleError extends Error {
 }
 
 export const resellerVoucherSaleService = {
-  getAll: async (db: D1Database): Promise<ResellerVoucherSaleListItem[]> => {
-    const result = await db
-      .prepare(
-        `SELECT id, reseller_id, sale_no, sale_date, sale_month, total_qty, total_amount, status, completed_at, cancelled_at
-           FROM reseller_voucher_sales
-          WHERE deleted_at IS NULL
-          ORDER BY created_at DESC`,
-      )
-      .all<any>()
-    return result.results.map((r: any) => ({
+  getAll: async (
+    db: D1Database,
+    cursor?: string,
+    limit = 20,
+  ): Promise<{ items: ResellerVoucherSaleListItem[]; nextCursor: string | null }> => {
+    // Fetch limit + 1 to detect if there's a next page. Cursor pages by `id`
+    // (a ULID, time-sortable) and sorts by the same column, so the boundary is
+    // stable even when multiple rows share a created_at timestamp.
+    const fetchLimit = limit + 1
+
+    let sql = `SELECT id, reseller_id, sale_no, sale_date, sale_month, total_qty, total_amount, status, completed_at, cancelled_at
+                 FROM reseller_voucher_sales
+                WHERE deleted_at IS NULL`
+    const bind: unknown[] = []
+
+    if (cursor) {
+      sql += ' AND id < ?'
+      bind.push(cursor)
+    }
+
+    sql += ' ORDER BY id DESC LIMIT ?'
+    bind.push(fetchLimit)
+
+    const result = await db.prepare(sql).bind(...bind).all<any>()
+
+    const rows = result.results
+    const hasMore = rows.length > limit
+    if (hasMore) rows.pop()
+
+    const items = rows.map((r: any) => ({
       id: r.id,
       resellerId: r.reseller_id,
       saleNo: r.sale_no,
@@ -46,6 +66,8 @@ export const resellerVoucherSaleService = {
       completedAt: r.completed_at,
       cancelledAt: r.cancelled_at,
     }))
+
+    return { items, nextCursor: hasMore ? rows[rows.length - 1].id : null }
   },
 
   getById: async (db: D1Database, id: string): Promise<ResellerVoucherSaleDetail | null> => {

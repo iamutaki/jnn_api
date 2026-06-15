@@ -30,6 +30,17 @@ export const profileController = {
     return response.success(c, profile)
   },
 
+  getReseller: async (c: Context<Env>) => {
+    const username = c.get('user').sub
+    const reseller = await profileService.getReseller(c.env.DB, username)
+
+    if (!reseller) {
+      return response.error(c, 'Reseller profile not found', 404, 'RESELLER_NOT_FOUND')
+    }
+
+    return response.success(c, reseller)
+  },
+
   update: async (c: Context<Env>) => {
     const username = c.get('user').sub
 

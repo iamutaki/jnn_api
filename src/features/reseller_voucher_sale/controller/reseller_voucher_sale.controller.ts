@@ -42,8 +42,10 @@ function normalizeItem(
 
 export const resellerVoucherSaleController = {
   list: async (c: Context<Env>) => {
-    const items = await resellerVoucherSaleService.getAll(c.env.DB)
-    return response.success(c, items)
+    const cursor = c.req.query('cursor') || undefined
+    const limit = Math.min(100, Math.max(1, parseInt(c.req.query('limit') ?? '20', 10)))
+    const { items, nextCursor } = await resellerVoucherSaleService.getAll(c.env.DB, cursor, limit)
+    return c.json({ success: true, data: items, meta: { nextCursor } })
   },
 
   getOne: async (c: Context<Env>) => {

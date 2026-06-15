@@ -5,6 +5,7 @@ import type {
   DigitalVoucher,
   DigitalVoucherListItem,
   DigitalVoucherDetail,
+  DigitalVoucherImportItem,
   CreateDigitalVoucherRequest,
 } from '../digital_voucher.types'
 
@@ -22,7 +23,7 @@ export const digitalVoucherService = {
   getAll: async (db: D1Database): Promise<DigitalVoucherListItem[]> => {
     const result = await db
       .prepare(
-        `SELECT id, voucher_id, sub_district_id, status, sold_to_reseller_id, sold_sale_id, sold_at
+        `SELECT id, voucher_id, sub_district_id, import_id, status, sold_to_reseller_id, sold_sale_id, sold_at
            FROM digital_vouchers
           WHERE deleted_at IS NULL
           ORDER BY created_at DESC`,
@@ -32,6 +33,7 @@ export const digitalVoucherService = {
       id: r.id,
       voucherId: r.voucher_id,
       subDistrictId: r.sub_district_id,
+      importId: r.import_id,
       status: r.status,
       soldToResellerId: r.sold_to_reseller_id,
       soldSaleId: r.sold_sale_id,
@@ -62,6 +64,7 @@ export const digitalVoucherService = {
       id: row.id,
       voucherId: row.voucher_id,
       subDistrictId: row.sub_district_id,
+      importId: row.import_id,
       status: row.status,
       soldToResellerId: row.sold_to_reseller_id,
       soldSaleId: row.sold_sale_id,
@@ -97,12 +100,72 @@ export const digitalVoucherService = {
       id: row.id,
       voucherId: row.voucher_id,
       subDistrictId: row.sub_district_id,
+      importId: row.import_id,
       status: row.status,
       soldToResellerId: row.sold_to_reseller_id,
       soldSaleId: row.sold_sale_id,
       soldAt: row.sold_at,
       code: plaintext,
     }
+  },
+
+  getImports: async (
+    db: D1Database,
+    cursor?: string,
+    limit = 20,
+  ): Promise<{ items: DigitalVoucherImportItem[]; nextCursor: string | null }> => {
+    // Fetch limit + 1 to detect if there's a next page.
+    const fetchLimit = limit + 1
+
+    let sql = `SELECT imp.id, imp.voucher_id, imp.sub_district_id, imp.total_codes, imp.notes, imp.created_at, imp.created_by_user_id,
+                      v.name AS voucher_name, v.price AS voucher_price,
+                      sd.name AS sub_district_name, sd.district_id,
+                      d.name AS district_name
+                 FROM digital_voucher_imports imp
+                 JOIN vouchers v ON v.id = imp.voucher_id
+                 LEFT JOIN sub_districts sd ON sd.id = imp.sub_district_id
+                 LEFT JOIN districts d ON d.id = sd.district_id`
+
+    const bind: unknown[] = []
+
+    if (cursor) {
+      sql += ' WHERE imp.id < ?'
+      bind.push(cursor)
+    }
+
+    sql += ' ORDER BY imp.id DESC LIMIT ?'
+    bind.push(fetchLimit)
+
+    const result = await db.prepare(sql).bind(...bind).all<any>()
+
+    const rows = result.results
+    const hasMore = rows.length > limit
+    if (hasMore) rows.pop()
+
+    const items = rows.map((r: any) => ({
+      id: r.id,
+      voucher: {
+        id: r.voucher_id,
+        name: r.voucher_name,
+        price: r.voucher_price,
+      },
+      subDistrict: r.sub_district_id
+        ? {
+            id: r.sub_district_id,
+            name: r.sub_district_name,
+            district: {
+              id: r.district_id,
+              name: r.district_name,
+            },
+          }
+        : null,
+      totalCodes: r.total_codes,
+      notes: r.notes,
+      createdAt: r.created_at,
+      createdByUserId: r.created_by_user_id,
+    }))
+
+    return { items, nextCursor: hasMore ? rows[rows.length - 1].id : null }
   },
 
   _voucherExists: async (db: D1Database, id: string): Promise<boolean> => {
@@ -142,18 +205,28 @@ export const digitalVoucherService = {
     }
   },
 
-  _insertStmt: (db: D1Database, p: PreparedItem, userId: string): D1PreparedStatement =>
+  _insertImportStmt: (db: D1Database, importId: string, voucherId: string, subDistrictId: string | null, totalCodes: number, userId: string): D1PreparedStatement =>
+    db
+      .prepare(
+        `INSERT INTO digital_voucher_imports
+          (id, voucher_id, sub_district_id, total_codes, created_by_user_id)
+         VALUES (?, ?, ?, ?, ?)`,
+      )
+      .bind(importId, voucherId, subDistrictId, totalCodes, userId),
+
+  _insertStmt: (db: D1Database, p: PreparedItem, userId: string, importId: string): D1PreparedStatement =>
     db
       .prepare(
         `INSERT INTO digital_vouchers
-          (id, voucher_id, sub_district_id, code_hash, encrypted_code, encryption_iv,
+          (id, voucher_id, sub_district_id, import_id, code_hash, encrypted_code, encryption_iv,
            encryption_tag, encryption_key_version, status, created_by_user_id, updated_by_user_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'available', ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', ?, ?)`,
       )
       .bind(
         p.id,
         p.voucherId,
         p.subDistrictId,
+        importId,
         p.hash,
         p.enc.encryptedCode,
         p.enc.iv,
@@ -168,7 +241,8 @@ export const digitalVoucherService = {
     env: Env['Bindings'],
     body: CreateDigitalVoucherRequest,
     userId: string,
-  ): Promise<string> => {
+  ): Promise<{ id: string; importId: string }> => {
+    const importId = ulid()
     const prepared = await digitalVoucherService._prepare(env, body)
 
     // Conflict check (same scope as unique index).
@@ -177,8 +251,12 @@ export const digitalVoucherService = {
       throw Object.assign(new Error('CODE_EXISTS'), { code: 'DV_CODE_EXISTS' })
     }
 
-    await digitalVoucherService._insertStmt(db, prepared, userId).run()
-    return prepared.id
+    await db.batch([
+      digitalVoucherService._insertImportStmt(db, importId, prepared.voucherId, prepared.subDistrictId, 1, userId),
+      digitalVoucherService._insertStmt(db, prepared, userId, importId),
+    ])
+
+    return { id: prepared.id, importId }
   },
 
   // Bulk: all-or-nothing. Parallel encrypt, pre-check conflicts (external + internal),
@@ -188,7 +266,7 @@ export const digitalVoucherService = {
     env: Env['Bindings'],
     items: CreateDigitalVoucherRequest[],
     userId: string,
-  ): Promise<number> => {
+  ): Promise<{ count: number; importIds: string[] }> => {
     const prepared = await Promise.all(items.map((it) => digitalVoucherService._prepare(env, it)))
 
     // Internal duplicates within this batch.
@@ -202,8 +280,32 @@ export const digitalVoucherService = {
     const conflicting = await digitalVoucherService._conflictingHashes(db, prepared.map((p) => p.hash))
     if (conflicting.size > 0) throw Object.assign(new Error('CODE_EXISTS'), { code: 'DV_CODE_EXISTS' })
 
-    await db.batch(prepared.map((p) => digitalVoucherService._insertStmt(db, p, userId)))
-    return prepared.length
+    // Group by voucherId — each group gets its own import record.
+    const groups = new Map<string, PreparedItem[]>()
+    for (const p of prepared) {
+      const arr = groups.get(p.voucherId) ?? []
+      arr.push(p)
+      groups.set(p.voucherId, arr)
+    }
+
+    const importIds: string[] = []
+    const stmts: D1PreparedStatement[] = []
+
+    for (const [voucherId, group] of groups) {
+      const importId = ulid()
+      importIds.push(importId)
+
+      const nonNullSd = group.find((p) => p.subDistrictId !== null)
+      const sdId = nonNullSd?.subDistrictId ?? null
+
+      stmts.push(digitalVoucherService._insertImportStmt(db, importId, voucherId, sdId, group.length, userId))
+      for (const p of group) {
+        stmts.push(digitalVoucherService._insertStmt(db, p, userId, importId))
+      }
+    }
+
+    await db.batch(stmts)
+    return { count: prepared.length, importIds }
   },
 
   remove: async (db: D1Database, id: string, userId: string): Promise<boolean> => {

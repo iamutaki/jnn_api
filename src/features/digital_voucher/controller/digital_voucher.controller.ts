@@ -21,6 +21,13 @@ export const digitalVoucherController = {
     return response.success(c, items)
   },
 
+  listImports: async (c: Context<Env>) => {
+    const cursor = c.req.query('cursor') || undefined
+    const limit = Math.min(100, Math.max(1, parseInt(c.req.query('limit') ?? '20', 10)))
+    const { items, nextCursor } = await digitalVoucherService.getImports(c.env.DB, cursor, limit)
+    return c.json({ success: true, data: items, meta: { nextCursor } })
+  },
+
   getOne: async (c: Context<Env>) => {
     const id = c.req.param('id') ?? ''
     try {
@@ -68,8 +75,8 @@ export const digitalVoucherController = {
 
     try {
       const userId = c.get('user').userId
-      const id = await digitalVoucherService.createSingle(c.env.DB, c.env, checked, userId)
-      return response.success(c, { id })
+      const result = await digitalVoucherService.createSingle(c.env.DB, c.env, checked, userId)
+      return response.success(c, { id: result.id, importId: result.importId })
     } catch (err: any) {
       if (err?.code === 'DV_CODE_EXISTS') {
         return response.error(c, 'Code already exists (available)', 409, 'DV_CODE_EXISTS')
@@ -116,8 +123,8 @@ export const digitalVoucherController = {
 
     try {
       const userId = c.get('user').userId
-      const count = await digitalVoucherService.createBulk(c.env.DB, c.env, checked, userId)
-      return response.success(c, { created: count })
+      const result = await digitalVoucherService.createBulk(c.env.DB, c.env, checked, userId)
+      return response.success(c, { created: result.count, importIds: result.importIds })
     } catch (err: any) {
       if (err?.code === 'DV_CODE_EXISTS') {
         return response.error(c, 'One or more codes already exist (available) — no rows inserted', 409, 'DV_CODE_EXISTS')

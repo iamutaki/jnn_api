@@ -15,3 +15,39 @@
 - Pengecualian: `createdAt` pada notification list item tetap ditampilkan.
 - Internal DB types boleh tetap memakai snake_case (`created_at`, `updated_at`, `deleted_at`).
 - `id`, `createdAt`, `updatedAt`, `deletedAt` adalah immutable fields — tidak boleh diubah/dihapus melalui proses update atau delete.
+
+## Pagination
+
+Gunakan **cursor-based pagination** untuk list endpoints yang mendukung infinite scroll / load more.
+
+### Request
+
+| Param    | Tipe    | Default | Keterangan                               |
+|----------|---------|---------|------------------------------------------|
+| `cursor` | string  | —       | ULID dari item terakhir halaman sebelumnya (tidak ada = halaman pertama) |
+| `limit`  | integer | `20`    | Maks item per halaman (max `100`)        |
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": [ ... ],
+  "meta": {
+    "nextCursor": "01JEX..."
+  }
+}
+```
+
+- `meta.nextCursor` = `null` jika sudah tidak ada halaman berikutnya.
+- `nextCursor` diisi dengan `id` (ULID) dari item terakhir di halaman saat ini — kirim nilai ini sebagai `cursor` pada request berikutnya.
+
+### Aturan implementasi
+
+- Gunakan ULID `id` sebagai cursor, karena ULID bersifat time-sortable (lexicographic order = chronological order).
+- Query: `WHERE id < ? ORDER BY id DESC LIMIT ?` — fetch `limit + 1` rows untuk deteksi `nextCursor`.
+- `nextCursor` = `null` jika row yang dikembalikan ≤ `limit`.
+- `created_at` boleh tetap ada di ORDER BY untuk stabilitas, tapi cursor tetap menggunakan `id`.
+- **Jangan** gunakan `OFFSET` — performa menurun drastis pada offset besar.
+- **Jangan** gunakan `page`/`pageSize` untuk infinite scroll — gunakan cursor.
+- Jika endpoint membutuhkan `total` count (misal untuk admin table), tambahkan `total` di response, tapi tetap gunakan cursor untuk data.

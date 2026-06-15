@@ -40,7 +40,7 @@ export const profileService = {
     const address = body.address !== undefined ? body.address : existing.address
 
     await db
-      .prepare("UPDATE users SET name = ?, phone = ?, email = ?, address = ?, updated_at = datetime('now') WHERE username = ?")
+      .prepare("UPDATE users SET name = ?, phone = ?, email = ?, address = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE username = ?")
       .bind(name, phone, email, address, username)
       .run()
 
@@ -53,7 +53,7 @@ export const profileService = {
     if (!existing) return null
 
     await db
-      .prepare("UPDATE users SET avatar = ?, updated_at = datetime('now') WHERE username = ?")
+      .prepare("UPDATE users SET avatar = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE username = ?")
       .bind(avatar, username)
       .run()
 
@@ -73,7 +73,7 @@ export const profileService = {
 
     const hashed = await hashPassword(newPassword)
     await db
-      .prepare("UPDATE users SET password = ?, updated_at = datetime('now') WHERE username = ?")
+      .prepare("UPDATE users SET password = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE username = ?")
       .bind(hashed, username)
       .run()
 

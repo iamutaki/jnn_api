@@ -100,7 +100,7 @@ export const resellerService = {
     if (body.avatar !== undefined) { userFields.push('avatar = ?'); userVals.push(body.avatar) }
     if (body.phone !== undefined) { userFields.push('phone = ?'); userVals.push(body.phone) }
     if (userFields.length > 0) {
-      userFields.push("updated_at = datetime('now')")
+      userFields.push("updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')")
       userVals.push(id)
       stmts.push(db.prepare(`UPDATE users SET ${userFields.join(', ')} WHERE id = ?`).bind(...userVals))
     }
@@ -114,7 +114,7 @@ export const resellerService = {
     const phone = body.phone !== undefined ? body.phone : existing.phone
 
     stmts.push(
-      db.prepare("UPDATE resellers SET venue_photo = ?, sub_district_id = ?, commission_rate = ?, commission_amount = ?, lat = ?, lng = ?, phone = ?, updated_at = datetime('now') WHERE id = ?")
+      db.prepare("UPDATE resellers SET venue_photo = ?, sub_district_id = ?, commission_rate = ?, commission_amount = ?, lat = ?, lng = ?, phone = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?")
         .bind(venuePhoto, subDistrictId, commissionRate, commissionAmount, lat, lng, phone, id),
     )
 
@@ -127,8 +127,8 @@ export const resellerService = {
     if (!existing) return false
 
     await db.batch([
-      db.prepare("UPDATE resellers SET deleted_at = datetime('now') WHERE id = ?").bind(id),
-      db.prepare("UPDATE users SET deleted_at = datetime('now') WHERE id = ?").bind(id),
+      db.prepare("UPDATE resellers SET deleted_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?").bind(id),
+      db.prepare("UPDATE users SET deleted_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?").bind(id),
     ])
     return true
   },

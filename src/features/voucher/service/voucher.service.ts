@@ -46,7 +46,7 @@ export const voucherService = {
     const description = body.description !== undefined ? body.description : existing.description
 
     await db
-      .prepare("UPDATE vouchers SET name = ?, price = ?, description = ?, updated_at = datetime('now') WHERE id = ?")
+      .prepare("UPDATE vouchers SET name = ?, price = ?, description = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?")
       .bind(name, price, description, id)
       .run()
 
@@ -54,6 +54,6 @@ export const voucherService = {
   },
 
   remove: async (db: D1Database, id: string): Promise<void> => {
-    await db.prepare("UPDATE vouchers SET deleted_at = datetime('now') WHERE id = ?").bind(id).run()
+    await db.prepare("UPDATE vouchers SET deleted_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?").bind(id).run()
   },
 }

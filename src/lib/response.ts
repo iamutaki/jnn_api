@@ -1,5 +1,6 @@
 import type { Context } from 'hono'
 import type { StatusCode, ContentfulStatusCode } from 'hono/utils/http-status'
+import { now } from './datetime'
 
 interface PaginationMeta {
   page: number
@@ -68,7 +69,7 @@ export const response = {
         error: message,
         meta: {
           code,
-          timestamp: new Date().toISOString(),
+          timestamp: now(),
         } satisfies ErrorMeta,
       },
       status,

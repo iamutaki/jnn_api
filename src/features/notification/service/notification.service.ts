@@ -115,7 +115,7 @@ export const notificationService = {
     if (!row) return false
 
     await db
-      .prepare("UPDATE notifications SET is_read = 1, updated_at = datetime('now') WHERE id = ?")
+      .prepare("UPDATE notifications SET is_read = 1, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?")
       .bind(id)
       .run()
 

@@ -19,6 +19,10 @@ type Bindings = {
   FIREBASE_PROJECT_ID: string
   FIREBASE_CLIENT_EMAIL: string
   FIREBASE_PRIVATE_KEY: string
+  // Voucher code encryption (digital_vouchers) — AES-256-GCM (per-version key) + HMAC
+  VOUCHER_ENCRYPTION_KEY_V1: string
+  VOUCHER_HASH_KEY_V1: string
+  VOUCHER_KEY_VERSION: string // current active key version, e.g. "1"
 }
 
 export type Env = {

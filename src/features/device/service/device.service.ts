@@ -29,7 +29,7 @@ export const deviceService = {
 
     if (existing) {
       await db
-        .prepare("UPDATE device_tokens SET fcm_token = ?, user_id = ?, updated_at = datetime('now'), deleted_at = NULL WHERE udid = ?")
+        .prepare("UPDATE device_tokens SET fcm_token = ?, user_id = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), deleted_at = NULL WHERE udid = ?")
         .bind(fcmToken, userId, udid)
         .run()
 
@@ -64,7 +64,7 @@ export const deviceService = {
     if (!existing) return false
 
     await db
-      .prepare("UPDATE device_tokens SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE udid = ?")
+      .prepare("UPDATE device_tokens SET deleted_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE udid = ?")
       .bind(udid)
       .run()
 

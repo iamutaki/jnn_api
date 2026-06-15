@@ -17,6 +17,8 @@ import { notificationRoutes } from './features/notification/routes/notification.
 import { voucherRoutes } from './features/voucher/routes/voucher.routes'
 import { subDistrictVoucherRoutes } from './features/sub_district_voucher/routes/sub_district_voucher.routes'
 import { resellerRoutes } from './features/reseller/routes/reseller.routes'
+import { resellerVoucherSaleRoutes } from './features/reseller_voucher_sale/routes/reseller_voucher_sale.routes'
+import { digitalVoucherRoutes } from './features/digital_voucher/routes/digital_voucher.routes'
 
 const app = new Hono<Env>()
 
@@ -56,6 +58,8 @@ v1.route('/voucher', voucherRoutes)
 v1.route('/sub-district', subDistrictRoutes)
 v1.route('/sub-district/:subDistrictId/voucher', subDistrictVoucherRoutes)
 v1.route('/reseller', resellerRoutes)
+v1.route('/reseller-voucher-sale', resellerVoucherSaleRoutes)
+v1.route('/digital-voucher', digitalVoucherRoutes)
 
 app.route('/v1', v1)
 
@@ -77,6 +81,8 @@ app.get('/', (c) => {
       profile: '/v1/profile',
       voucher: '/v1/voucher',
       reseller: '/v1/reseller',
+      reseller_voucher_sale: '/v1/reseller-voucher-sale',
+      digital_voucher: '/v1/digital-voucher',
       notification: '/v1/notification',
     },
   })

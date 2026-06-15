@@ -51,7 +51,7 @@ export const notificationController = {
     const image = result.body.image as string | undefined
     const actionUrl = result.body.actionUrl as string | undefined
 
-    const { sent, failed } = await notificationService.send({
+    await notificationService.send({
       db: c.env.DB,
       projectId: c.env.FIREBASE_PROJECT_ID,
       clientEmail: c.env.FIREBASE_CLIENT_EMAIL,
@@ -64,7 +64,7 @@ export const notificationController = {
       actionUrl,
     })
 
-    return response.success(c, { sent, failed })
+    return response.noContent(c, 201)
   },
 
   markRead: async (c: Context<Env>) => {

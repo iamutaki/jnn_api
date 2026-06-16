@@ -50,7 +50,8 @@ export const resellerVoucherSaleController = {
 
   getOne: async (c: Context<Env>) => {
     const id = c.req.param('id') ?? ''
-    const item = await resellerVoucherSaleService.getById(c.env.DB, id)
+    const userId = c.get('user').userId
+    const item = await resellerVoucherSaleService.getById(c.env.DB, c.env, id, userId)
     if (!item) {
       return response.error(c, 'Voucher sale not found', 404, 'RVS_NOT_FOUND')
     }

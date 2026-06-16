@@ -1,5 +1,7 @@
 import { ulid } from '../../../lib/ulid'
+import { decryptCode } from '../../../lib/voucher-crypto'
 import { codeGeneratorService } from '../../code_generator/service/code_generator.service'
+import type { Env } from '../../../types'
 import type {
   ResellerVoucherSale,
   ResellerVoucherSaleListItem,
@@ -70,7 +72,12 @@ export const resellerVoucherSaleService = {
     return { items, nextCursor: hasMore ? rows[rows.length - 1].id : null }
   },
 
-  getById: async (db: D1Database, id: string): Promise<ResellerVoucherSaleDetail | null> => {
+  getById: async (
+    db: D1Database,
+    env: Env['Bindings'],
+    id: string,
+    currentUserId: string,
+  ): Promise<ResellerVoucherSaleDetail | null> => {
     const sale = await resellerVoucherSaleService._getFull(db, id)
     if (!sale) return null
 
@@ -86,23 +93,47 @@ export const resellerVoucherSaleService = {
 
     const detailItems: SaleItemResponse[] = await Promise.all(
       items.results.map(async (it) => {
+        // Pull each allocated code's metadata + crypto material + the seller. Plaintext is
+        // revealed only to the seller (sold_by_user_id === caller); everyone else gets the
+        // "******" mask. Draft sales have no link rows, so allocatedCodes is [] for them.
         const codes = await db
           .prepare(
-            `SELECT dv.id, dv.status
+            `SELECT dv.id, dv.status, dv.sold_by_user_id,
+                    dv.encrypted_code, dv.encryption_iv, dv.encryption_tag, dv.encryption_key_version
                FROM reseller_voucher_sale_item_digital_vouchers link
                JOIN digital_vouchers dv ON dv.id = link.digital_voucher_id
               WHERE link.sale_item_id = ? AND link.deleted_at IS NULL
               ORDER BY link.created_at ASC`,
           )
           .bind(it.id)
-          .all<{ id: string; status: string }>()
+          .all<{
+            id: string
+            status: string
+            sold_by_user_id: string | null
+            encrypted_code: string
+            encryption_iv: string
+            encryption_tag: string
+            encryption_key_version: number
+          }>()
+
+        const allocatedCodes = await Promise.all(
+          codes.results.map(async (c) => ({
+            id: c.id,
+            status: c.status,
+            code:
+              c.sold_by_user_id === currentUserId
+                ? await decryptCode(c.encrypted_code, c.encryption_iv, c.encryption_tag, c.encryption_key_version, env)
+                : '******',
+          })),
+        )
+
         return {
           id: it.id,
           voucherId: it.voucher_id,
           qty: it.qty,
           unitPrice: it.unit_price,
           totalAmount: it.total_amount,
-          allocatedCodes: codes.results.map((c) => ({ id: c.id, status: c.status })),
+          allocatedCodes,
         }
       }),
     )
@@ -453,7 +484,7 @@ export const resellerVoucherSaleService = {
                 )
                 RETURNING id`,
             )
-            .bind(sale.reseller_id, id, userId, userId, userId, item.voucher_id, subDistrictId, subDistrictId, item.qty)
+            .bind(sale.reseller_id, id, userId, userId, item.voucher_id, subDistrictId, subDistrictId, item.qty)
             .all<{ id: string }>()
         : await db
             .prepare(
@@ -468,7 +499,7 @@ export const resellerVoucherSaleService = {
                 )
                 RETURNING id`,
             )
-            .bind(sale.reseller_id, id, userId, userId, userId, item.voucher_id, item.qty)
+            .bind(sale.reseller_id, id, userId, userId, item.voucher_id, item.qty)
             .all<{ id: string }>()
 
       if (claim.results.length < item.qty) {

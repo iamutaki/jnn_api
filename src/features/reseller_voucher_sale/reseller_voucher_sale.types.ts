@@ -49,16 +49,17 @@ export interface ResellerVoucherSaleListItem {
   cancelledAt: string | null
 }
 
-// A sale item in the detail response — includes the allocated codes' METADATA
-// (id + status). The plaintext code is NEVER exposed here; use the digital_voucher
-// detail endpoint to reveal a single code if authorized.
+// A sale item in the detail response — includes each allocated code's metadata (id +
+// status) AND a `code` field. The plaintext is revealed ONLY to the code's seller
+// (sold_by_user_id === caller); every other caller sees the mask "******". This mirrors
+// the digital_voucher detail auth model — authorized → plaintext, unauthorized → mask.
 export interface SaleItemResponse {
   id: string
   voucherId: string
   qty: number
   unitPrice: number
   totalAmount: number
-  allocatedCodes: { id: string; status: string }[]
+  allocatedCodes: { id: string; status: string; code: string }[]
 }
 
 // Detail — header + items (+ allocated code metadata per item).
@@ -99,4 +100,12 @@ export interface ResellerVoucherSaleLog {
   changedByUserId: string | null
   changedAt: string
   note: string | null
+}
+
+// Authorization scope for reading sales. A reseller sees only their own sales
+// (resellerId = their own id); root/owner/supervisor (viewAll) see every sale.
+export interface SaleViewer {
+  userId: string
+  resellerId: string // the reseller scope to filter by when viewAll is false
+  viewAll: boolean // true → bypass reseller_id scoping (oversight roles)
 }

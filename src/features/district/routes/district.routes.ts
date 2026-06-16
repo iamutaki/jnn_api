@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { authMiddleware } from '../../../middlewares/auth'
+import { authMiddleware, requireRoles } from '../../../middlewares/auth'
 import type { Env } from '../../../types'
 import { districtController } from '../controller/district.controller'
 
@@ -19,8 +19,8 @@ districtRoutes.use('/*', authMiddleware)
  */
 districtRoutes.get('/', districtController.list)
 districtRoutes.get('/:id', districtController.getOne)
-districtRoutes.post('/', districtController.create)
-districtRoutes.patch('/:id', districtController.update)
-districtRoutes.delete('/:id', districtController.remove)
+districtRoutes.post('/', requireRoles('root', 'owner', 'supervisor'), districtController.create)
+districtRoutes.patch('/:id', requireRoles('root', 'owner', 'supervisor'), districtController.update)
+districtRoutes.delete('/:id', requireRoles('root', 'owner', 'supervisor'), districtController.remove)
 
 export { districtRoutes }

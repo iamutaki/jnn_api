@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { authMiddleware } from '../../../middlewares/auth'
+import { authMiddleware, requireRoles } from '../../../middlewares/auth'
 import type { Env } from '../../../types'
 import { digitalVoucherController } from '../controller/digital_voucher.controller'
 
@@ -30,8 +30,8 @@ digitalVoucherRoutes.get('/', digitalVoucherController.list)
 digitalVoucherRoutes.get('/imports', digitalVoucherController.listImports)
 digitalVoucherRoutes.get('/by-code', digitalVoucherController.getByCode)
 digitalVoucherRoutes.get('/:id', digitalVoucherController.getOne)
-digitalVoucherRoutes.post('/', digitalVoucherController.create)
-digitalVoucherRoutes.post('/bulk', digitalVoucherController.createBulk)
-digitalVoucherRoutes.delete('/:id', digitalVoucherController.remove)
+digitalVoucherRoutes.post('/', requireRoles('root', 'owner', 'supervisor'), digitalVoucherController.create)
+digitalVoucherRoutes.post('/bulk', requireRoles('root', 'owner', 'supervisor'), digitalVoucherController.createBulk)
+digitalVoucherRoutes.delete('/:id', requireRoles('root', 'owner', 'supervisor'), digitalVoucherController.remove)
 
 export { digitalVoucherRoutes }

@@ -40,7 +40,7 @@ async function checkRolesExist(db: D1Database, ids: string[]): Promise<string | 
   const result = await db.prepare(`SELECT id FROM roles WHERE id IN (${placeholders})`).bind(...ids).all<{ id: string }>()
   const found = new Set(result.results.map(r => r.id))
   const missing = ids.filter(id => !found.has(id))
-  if (missing.length > 0) return `Roles not found: ${missing.join(', ')}`
+  if (missing.length > 0) return 'Role tidak ditemukan'
   return null
 }
 
@@ -52,7 +52,7 @@ async function checkUniqueFields(c: Context<Env>, body: Record<string, unknown>,
       const exists = await userService._fieldExists(c.env.DB, field, value as string, excludeId)
       if (exists) {
         const key = field.charAt(0).toUpperCase() + field.slice(1)
-        return response.error(c, `${key} already exists`, 409, `USER_${field.toUpperCase()}_EXISTS`)
+        return response.error(c, `${key} sudah digunakan`, 409, `USER_${field.toUpperCase()}_EXISTS`)
       }
     }
   }
@@ -70,7 +70,7 @@ export const userController = {
     const item = await userService.getById(c.env.DB, id)
 
     if (!item) {
-      return response.error(c, 'User not found', 404, 'USER_NOT_FOUND')
+      return response.error(c, 'Pengguna tidak ditemukan', 404, 'USER_NOT_FOUND')
     }
 
     return response.success(c, item)
@@ -90,12 +90,12 @@ export const userController = {
 
     const roleIds = validateRoleIds(result.body)
     if (roleIds === null) {
-      return response.error(c, 'roleIds must be an array of strings', 400, 'USER_VALIDATION_ERROR')
+      return response.error(c, 'roleIds harus berupa daftar teks', 400, 'USER_VALIDATION_ERROR')
     }
 
     const roleErr = await checkRolesExist(c.env.DB, roleIds)
     if (roleErr) {
-      return response.error(c, roleErr, 400, 'USER_VALIDATION_ERROR')
+      return response.error(c, 'Role tidak ditemukan', 400, 'USER_VALIDATION_ERROR')
     }
 
     await userService.create(c.env.DB, result.body as any, roleIds)
@@ -106,7 +106,7 @@ export const userController = {
     const id = c.req.param('id') ?? ''
 
     if (id === userService.SYSTEM_USER_ID) {
-      return response.error(c, 'Cannot edit System user', 403, 'USER_PROTECTED')
+      return response.error(c, 'Tidak bisa mengubah pengguna System', 403, 'USER_PROTECTED')
     }
 
     const body = await safeJsonBody(c)
@@ -120,7 +120,7 @@ export const userController = {
     const password = body.password
     if (password !== undefined && password !== null) {
       if (typeof password !== 'string' || password.length < 6) {
-        return response.error(c, 'Password must be at least 6 characters', 400, 'USER_VALIDATION_ERROR')
+        return response.error(c, 'Password minimal 6 karakter', 400, 'USER_VALIDATION_ERROR')
       }
     }
 
@@ -129,18 +129,18 @@ export const userController = {
 
     const roleIds = validateRoleIds(result.body)
     if (roleIds === null) {
-      return response.error(c, 'roleIds must be an array of strings', 400, 'USER_VALIDATION_ERROR')
+      return response.error(c, 'roleIds harus berupa daftar teks', 400, 'USER_VALIDATION_ERROR')
     }
 
     const roleErr = await checkRolesExist(c.env.DB, roleIds)
     if (roleErr) {
-      return response.error(c, roleErr, 400, 'USER_VALIDATION_ERROR')
+      return response.error(c, 'Role tidak ditemukan', 400, 'USER_VALIDATION_ERROR')
     }
 
     const updated = await userService.update(c.env.DB, id, result.body as any, roleIds)
 
     if (!updated) {
-      return response.error(c, 'User not found', 404, 'USER_NOT_FOUND')
+      return response.error(c, 'Pengguna tidak ditemukan', 404, 'USER_NOT_FOUND')
     }
 
     return response.noContent(c, 204)
@@ -150,13 +150,13 @@ export const userController = {
     const id = c.req.param('id') ?? ''
 
     if (id === userService.SYSTEM_USER_ID) {
-      return response.error(c, 'Cannot delete System user', 403, 'USER_PROTECTED')
+      return response.error(c, 'Tidak bisa menghapus pengguna System', 403, 'USER_PROTECTED')
     }
 
     const deleted = await userService.remove(c.env.DB, id)
 
     if (!deleted) {
-      return response.error(c, 'User not found', 404, 'USER_NOT_FOUND')
+      return response.error(c, 'Pengguna tidak ditemukan', 404, 'USER_NOT_FOUND')
     }
 
     return response.noContent(c, 204)

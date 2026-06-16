@@ -199,6 +199,55 @@ export const resellerVoucherSaleService = {
     return { userId, resellerId: userId, viewAll }
   },
 
+  // Check whether there are enough available digital_vouchers in the reseller's
+  // allocation scope (sub-district, or pool-wide for System) to fulfill every item.
+  // Throws SALE_INSUFFICIENT_STOCK with the voucher name if any item falls short.
+  _checkStockAvailable: async (
+    db: D1Database,
+    resellerId: string,
+    items: { voucherId: string; qty: number }[],
+  ): Promise<void> => {
+    const subDistrictId = await resellerVoucherSaleService._getResellerSubDistrict(db, resellerId)
+    const scoped = subDistrictId !== null
+
+    // Resolve voucher names for a human-friendly error.
+    const voucherIds = [...new Set(items.map((i) => i.voucherId))]
+    const voucherRows = voucherIds.length
+      ? await db
+          .prepare(`SELECT id, name FROM vouchers WHERE id IN (${voucherIds.map(() => '?').join(',')})`)
+          .bind(...voucherIds)
+          .all<{ id: string; name: string }>()
+      : { results: [] as { id: string; name: string }[] }
+    const voucherNames = new Map(voucherRows.results.map((v) => [v.id, v.name]))
+
+    for (const item of items) {
+      const row = scoped
+        ? await db
+            .prepare(
+              `SELECT COUNT(*) as available
+                 FROM digital_vouchers
+                WHERE voucher_id = ? AND status = 'available' AND deleted_at IS NULL
+                  AND (sub_district_id = ? OR sub_district_id IS NULL)`,
+            )
+            .bind(item.voucherId, subDistrictId)
+            .first<{ available: number }>()
+        : await db
+            .prepare(
+              `SELECT COUNT(*) as available
+                 FROM digital_vouchers
+                WHERE voucher_id = ? AND status = 'available' AND deleted_at IS NULL`,
+            )
+            .bind(item.voucherId)
+            .first<{ available: number }>()
+
+      const available = row?.available ?? 0
+      if (available < item.qty) {
+        const vName = voucherNames.get(item.voucherId) ?? item.voucherId
+        throw new SaleError('SALE_INSUFFICIENT_STOCK', `Stok tidak mencukupi untuk ${vName}`)
+      }
+    }
+  },
+
   _voucherExists: async (db: D1Database, id: string): Promise<boolean> => {
     const row = await db.prepare('SELECT 1 FROM vouchers WHERE id = ? AND deleted_at IS NULL').bind(id).first()
     return row !== null
@@ -276,6 +325,9 @@ export const resellerVoucherSaleService = {
       totalAmount += item.qty * unitPrice
       resolvedItems.push({ voucherId: item.voucherId, qty: item.qty, unitPrice })
     }
+
+    // Pre-check stock availability so the caller knows before a draft is created.
+    await resellerVoucherSaleService._checkStockAvailable(db, resellerId, resolvedItems)
 
     const stmts: D1PreparedStatement[] = [
       db
@@ -488,6 +540,16 @@ export const resellerVoucherSaleService = {
       .bind(id)
       .all<{ id: string; voucher_id: string; qty: number }>()
 
+    // Resolve voucher names for human-readable error messages.
+    const voucherIds = [...new Set(items.results.map((i) => i.voucher_id))]
+    const voucherRows = voucherIds.length
+      ? await db
+          .prepare(`SELECT id, name FROM vouchers WHERE id IN (${voucherIds.map(() => '?').join(',')})`)
+          .bind(...voucherIds)
+          .all<{ id: string; name: string }>()
+      : { results: [] as { id: string; name: string }[] }
+    const voucherNames = new Map(voucherRows.results.map((v) => [v.id, v.name]))
+
     // --- Phase 1: atomic per-item claim via UPDATE…RETURNING ---
     // Each claim is a single serialized write: the subquery picks N available codes and the
     // outer UPDATE flips them to sold-to-this-sale in one step, so two concurrent completes
@@ -531,7 +593,8 @@ export const resellerVoucherSaleService = {
       if (claim.results.length < item.qty) {
         // Partial fill → full rollback (release claims + revert status to draft).
         await resellerVoucherSaleService._revertCompletion(db, id, userId)
-        throw new SaleError('SALE_INSUFFICIENT_STOCK', `Insufficient available codes for voucher ${item.voucher_id}`)
+        const vName = voucherNames.get(item.voucher_id) ?? item.voucher_id
+        throw new SaleError('SALE_INSUFFICIENT_STOCK', `Stok tidak mencukupi untuk ${vName}`)
       }
       claimed.push({ saleItemId: item.id, dvIds: claim.results.map((c) => c.id) })
     }

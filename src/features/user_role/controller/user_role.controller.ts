@@ -17,7 +17,7 @@ export const userRoleController = {
 
     const userExists = await userRoleService.userExists(c.env.DB, userId)
     if (!userExists) {
-      return response.error(c, 'User not found', 404, 'USER_NOT_FOUND')
+      return response.error(c, 'Pengguna tidak ditemukan', 404, 'USER_NOT_FOUND')
     }
 
     const roles = await userRoleService.getRolesForUser(c.env.DB, userId)
@@ -29,7 +29,7 @@ export const userRoleController = {
 
     const roleExists = await userRoleService.roleExists(c.env.DB, roleId)
     if (!roleExists) {
-      return response.error(c, 'Role not found', 404, 'ROLE_NOT_FOUND')
+      return response.error(c, 'Role tidak ditemukan', 404, 'ROLE_NOT_FOUND')
     }
 
     const users = await userRoleService.getUsersForRole(c.env.DB, roleId)
@@ -47,22 +47,22 @@ export const userRoleController = {
 
     const roleIds = body[ROLE_IDS_KEY]
     if (!Array.isArray(roleIds) || roleIds.length === 0) {
-      return response.error(c, 'roleIds must be a non-empty array', 400, 'USER_ROLE_VALIDATION_ERROR')
+      return response.error(c, 'roleIds harus diisi', 400, 'USER_ROLE_VALIDATION_ERROR')
     }
     if (!roleIds.every((id: unknown) => typeof id === 'string' && (id as string).trim().length > 0)) {
-      return response.error(c, 'roleIds must only contain non-empty strings', 400, 'USER_ROLE_VALIDATION_ERROR')
+      return response.error(c, 'roleIds harus berupa teks', 400, 'USER_ROLE_VALIDATION_ERROR')
     }
 
     const { userId } = result.body as { userId: string }
 
     const userExists = await userRoleService.userExists(c.env.DB, userId)
     if (!userExists) {
-      return response.error(c, 'User not found', 404, 'USER_NOT_FOUND')
+      return response.error(c, 'Pengguna tidak ditemukan', 404, 'USER_NOT_FOUND')
     }
 
     const { allExist, missing } = await userRoleService.roleIdsExist(c.env.DB, roleIds)
     if (!allExist) {
-      return response.error(c, `Roles not found: ${missing.join(', ')}`, 400, 'USER_ROLE_ROLE_NOT_FOUND')
+      return response.error(c, 'Role tidak ditemukan', 400, 'USER_ROLE_ROLE_NOT_FOUND')
     }
 
     const assigned = await userRoleService.assign(c.env.DB, userId, roleIds)
@@ -75,7 +75,7 @@ export const userRoleController = {
 
     const removed = await userRoleService.remove(c.env.DB, userId, roleId)
     if (!removed) {
-      return response.error(c, 'User does not have this role', 404, 'USER_ROLE_NOT_FOUND')
+      return response.error(c, 'Pengguna tidak memiliki role ini', 404, 'USER_ROLE_NOT_FOUND')
     }
 
     return response.noContent(c, 204)

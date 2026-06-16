@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { authMiddleware } from '../../../middlewares/auth'
+import { authMiddleware, requireRoles } from '../../../middlewares/auth'
 import type { Env } from '../../../types'
 import { userController } from '../controller/user.controller'
 
@@ -7,10 +7,10 @@ const userRoutes = new Hono<Env>()
 
 userRoutes.use('/*', authMiddleware)
 
-userRoutes.get('/', userController.list)
-userRoutes.get('/:id', userController.getOne)
-userRoutes.post('/', userController.create)
-userRoutes.patch('/:id', userController.update)
-userRoutes.delete('/:id', userController.remove)
+userRoutes.get('/', requireRoles('root', 'owner', 'supervisor'), userController.list)
+userRoutes.get('/:id', requireRoles('root', 'owner', 'supervisor'), userController.getOne)
+userRoutes.post('/', requireRoles('root', 'owner', 'supervisor'), userController.create)
+userRoutes.patch('/:id', requireRoles('root', 'owner', 'supervisor'), userController.update)
+userRoutes.delete('/:id', requireRoles('root', 'owner', 'supervisor'), userController.remove)
 
 export { userRoutes }

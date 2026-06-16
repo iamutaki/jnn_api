@@ -24,19 +24,19 @@ const URL_REGEX = /^https?:\/\/.+/
 function validateResellerFields(body: Record<string, unknown>): string | null {
   const avatar = body.avatar as string | undefined
   if (avatar !== undefined && !URL_REGEX.test(avatar)) {
-    return 'Avatar must be a valid URL'
+    return 'Avatar harus berupa URL yang valid'
   }
   const venuePhoto = body.venuePhoto as string | undefined
   if (venuePhoto !== undefined && !URL_REGEX.test(venuePhoto)) {
-    return 'Venue photo must be a valid URL'
+    return 'Foto tempat harus berupa URL yang valid'
   }
   const cr = body.commissionRate as number | undefined
   if (cr !== undefined && (cr < 0 || cr > 100)) {
-    return 'Commission rate must be between 0 and 100'
+    return 'Komisi harus antara 0 dan 100'
   }
   const ca = body.commissionAmount as number | undefined
   if (ca !== undefined && (!Number.isInteger(ca) || ca < 0)) {
-    return 'Commission amount must be an unsigned integer'
+    return 'Jumlah komisi harus berupa angka positif'
   }
   return null
 }
@@ -65,7 +65,7 @@ export const resellerController = {
     const item = await resellerService.getById(c.env.DB, id)
 
     if (!item) {
-      return response.error(c, 'Reseller not found', 404, 'RESELLER_NOT_FOUND')
+      return response.error(c, 'Reseller tidak ditemukan', 404, 'RESELLER_NOT_FOUND')
     }
 
     return response.success(c, item)
@@ -82,20 +82,20 @@ export const resellerController = {
 
     const username = result.body.username as string
     if (!/^[a-zA-Z0-9]+$/.test(username)) {
-      return response.error(c, 'Username must be alphanumeric', 400, 'RESELLER_VALIDATION_ERROR')
+      return response.error(c, 'Username hanya boleh huruf dan angka', 400, 'RESELLER_VALIDATION_ERROR')
     }
 
     const phone = result.body.phone as string | undefined
     if (phone !== undefined && !/^\d+$/.test(phone)) {
-      return response.error(c, 'Phone must be numeric', 400, 'RESELLER_VALIDATION_ERROR')
+      return response.error(c, 'Nomor telepon hanya boleh angka', 400, 'RESELLER_VALIDATION_ERROR')
     }
 
     if (await resellerService._fieldExists(c.env.DB, 'username', username)) {
-      return response.error(c, 'Username already exists', 409, 'RESELLER_USERNAME_EXISTS')
+      return response.error(c, 'Username sudah digunakan', 409, 'RESELLER_USERNAME_EXISTS')
     }
 
     if (phone && await resellerService._fieldExists(c.env.DB, 'phone', phone)) {
-      return response.error(c, 'Phone already exists', 409, 'RESELLER_PHONE_EXISTS')
+      return response.error(c, 'Nomor telepon sudah digunakan', 409, 'RESELLER_PHONE_EXISTS')
     }
 
     const fieldErr = validateResellerFields(result.body)
@@ -105,7 +105,7 @@ export const resellerController = {
 
     const sdId = result.body.subDistrictId as string
     if (!(await resellerService._subDistrictExists(c.env.DB, sdId))) {
-      return response.error(c, 'Sub-district not found', 400, 'RESELLER_SUB_DISTRICT_NOT_FOUND')
+      return response.error(c, 'Sub-distrik tidak ditemukan', 400, 'RESELLER_SUB_DISTRICT_NOT_FOUND')
     }
 
     await resellerService.create(c.env.DB, result.body as any)
@@ -121,7 +121,7 @@ export const resellerController = {
     const password = body.password
     if (password !== undefined && password !== null) {
       if (typeof password !== 'string' || password.length < 6) {
-        return response.error(c, 'Password must be at least 6 characters', 400, 'RESELLER_VALIDATION_ERROR')
+        return response.error(c, 'Password minimal 6 karakter', 400, 'RESELLER_VALIDATION_ERROR')
       }
     }
 
@@ -132,20 +132,20 @@ export const resellerController = {
 
     const username = result.body.username as string | undefined
     if (username !== undefined && !/^[a-zA-Z0-9]+$/.test(username)) {
-      return response.error(c, 'Username must be alphanumeric', 400, 'RESELLER_VALIDATION_ERROR')
+      return response.error(c, 'Username hanya boleh huruf dan angka', 400, 'RESELLER_VALIDATION_ERROR')
     }
 
     const phone = result.body.phone as string | undefined
     if (phone !== undefined && !/^\d+$/.test(phone)) {
-      return response.error(c, 'Phone must be numeric', 400, 'RESELLER_VALIDATION_ERROR')
+      return response.error(c, 'Nomor telepon hanya boleh angka', 400, 'RESELLER_VALIDATION_ERROR')
     }
 
     if (username && await resellerService._fieldExists(c.env.DB, 'username', username, id)) {
-      return response.error(c, 'Username already exists', 409, 'RESELLER_USERNAME_EXISTS')
+      return response.error(c, 'Username sudah digunakan', 409, 'RESELLER_USERNAME_EXISTS')
     }
 
     if (phone && await resellerService._fieldExists(c.env.DB, 'phone', phone, id)) {
-      return response.error(c, 'Phone already exists', 409, 'RESELLER_PHONE_EXISTS')
+      return response.error(c, 'Nomor telepon sudah digunakan', 409, 'RESELLER_PHONE_EXISTS')
     }
 
     const fieldErr = validateResellerFields(result.body)
@@ -155,13 +155,13 @@ export const resellerController = {
 
     const sdId = result.body.subDistrictId as string | undefined
     if (sdId && !(await resellerService._subDistrictExists(c.env.DB, sdId))) {
-      return response.error(c, 'Sub-district not found', 400, 'RESELLER_SUB_DISTRICT_NOT_FOUND')
+      return response.error(c, 'Sub-distrik tidak ditemukan', 400, 'RESELLER_SUB_DISTRICT_NOT_FOUND')
     }
 
     const updated = await resellerService.update(c.env.DB, id, result.body as any)
 
     if (!updated) {
-      return response.error(c, 'Reseller not found', 404, 'RESELLER_NOT_FOUND')
+      return response.error(c, 'Reseller tidak ditemukan', 404, 'RESELLER_NOT_FOUND')
     }
 
     return response.noContent(c, 204)
@@ -172,7 +172,7 @@ export const resellerController = {
     const deleted = await resellerService.remove(c.env.DB, id)
 
     if (!deleted) {
-      return response.error(c, 'Reseller not found', 404, 'RESELLER_NOT_FOUND')
+      return response.error(c, 'Reseller tidak ditemukan', 404, 'RESELLER_NOT_FOUND')
     }
 
     return response.noContent(c, 204)

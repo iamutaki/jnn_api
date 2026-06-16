@@ -13,7 +13,7 @@ export const dummyController = {
     const item = dummyService.getById(id)
 
     if (!item) {
-      return response.error(c, 'Item not found', 404, 'DUMMY_NOT_FOUND')
+      return response.error(c, 'Item tidak ditemukan', 404, 'DUMMY_NOT_FOUND')
     }
 
     return response.success(c, item)
@@ -23,7 +23,7 @@ export const dummyController = {
     const body = await c.req.json()
 
     if (!body.title) {
-      return response.error(c, 'Title is required', 400, 'DUMMY_VALIDATION_ERROR')
+      return response.error(c, 'Judul wajib diisi', 400, 'DUMMY_VALIDATION_ERROR')
     }
 
     const item = dummyService.create(body)
@@ -36,7 +36,7 @@ export const dummyController = {
     const item = dummyService.update(id, body)
 
     if (!item) {
-      return response.error(c, 'Item not found', 404, 'DUMMY_NOT_FOUND')
+      return response.error(c, 'Item tidak ditemukan', 404, 'DUMMY_NOT_FOUND')
     }
 
     return response.success(c, item)
@@ -47,7 +47,7 @@ export const dummyController = {
     const deleted = dummyService.delete(id)
 
     if (!deleted) {
-      return response.error(c, 'Item not found', 404, 'DUMMY_NOT_FOUND')
+      return response.error(c, 'Item tidak ditemukan', 404, 'DUMMY_NOT_FOUND')
     }
 
     return response.success(c, { message: 'Item deleted' })

@@ -1,5 +1,13 @@
 # API Rules
 
+## Error messages
+
+- Semua pesan error yang tampil ke pengguna **wajib** menggunakan **bahasa Indonesia** yang umum dan mudah dipahami oleh awam.
+- **Jangan** expose ID database mentah (ULID) di pesan error.
+- Gunakan kalimat yang jelas dan alami, misal: `"Voucher tidak ditemukan"`, `"Pengguna tidak ditemukan"`, `"Stok tidak mencukupi untuk Voucher A"` — bukan `` `Voucher not found: ${id}` ``.
+- Kode error internal (`RVS_NOT_FOUND`, `DV_VOUCHER_NOT_FOUND`, dll.) tetap dikembalikan di `meta.code` untuk keperluan programmatic, bukan untuk ditampilkan.
+- Pengecualian: pesan error teknis di server-side (misal `SaleError`) boleh membawa informasi internal untuk logging/debugging, tapi pesan yang sampai ke pengguna tetap harus bersih.
+
 ## Timestamp storage
 
 - All timestamps are stored and returned in **ISO 8601** format: `YYYY-MM-DDTHH:MM:SSZ` in **UTC** (e.g. `2026-02-14T08:30:11Z`).

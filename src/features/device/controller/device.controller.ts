@@ -46,7 +46,7 @@ export const deviceController = {
     const revoked = await deviceService.revoke(c.env.DB, userId, udid)
 
     if (!revoked) {
-      return response.error(c, 'Device not found', 404, 'DEVICE_NOT_FOUND')
+      return response.error(c, 'Perangkat tidak ditemukan', 404, 'DEVICE_NOT_FOUND')
     }
 
     return response.noContent(c, 204)

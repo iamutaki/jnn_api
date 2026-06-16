@@ -21,16 +21,16 @@ function normalizeItem(
   raw: unknown,
   label: string,
 ): { voucherId: string; qty: number; unitPrice?: number } | string {
-  if (typeof raw !== 'object' || raw === null) return `${label} must be an object`
+  if (typeof raw !== 'object' || raw === null) return `${label} harus berupa objek`
   const { voucherId, qty, unitPrice } = raw as { voucherId?: unknown; qty?: unknown; unitPrice?: unknown }
-  if (typeof voucherId !== 'string') return `${label}.voucherId must be a string`
+  if (typeof voucherId !== 'string') return `${label}.voucherId harus berupa teks`
   const resolvedQty: number = qty === null || qty === undefined ? 0 : (qty as number)
   if (!Number.isInteger(resolvedQty) || resolvedQty < 0) {
-    return `${label}.qty must be a non-negative integer`
+    return `${label}.qty harus berupa angka positif`
   }
   if (unitPrice !== undefined && unitPrice !== null) {
     if (!Number.isInteger(unitPrice as number) || (unitPrice as number) < 0) {
-      return `${label}.unitPrice must be a non-negative integer`
+      return `${label}.unitPrice harus berupa angka positif`
     }
   }
   return {
@@ -54,7 +54,7 @@ export const resellerVoucherSaleController = {
     const viewer = await resellerVoucherSaleService._resolveViewer(c.env.DB, c.get('user').userId)
     const item = await resellerVoucherSaleService.getById(c.env.DB, c.env, id, viewer)
     if (!item) {
-      return response.error(c, 'Voucher sale not found', 404, 'RVS_NOT_FOUND')
+      return response.error(c, 'Penjualan tidak ditemukan', 404, 'RVS_NOT_FOUND')
     }
     return response.success(c, item)
   },
@@ -72,27 +72,27 @@ export const resellerVoucherSaleController = {
     // Idempotency-Key (required, Stripe-style): prevents duplicate creates on retry.
     const idempotencyKey = c.req.header('Idempotency-Key')?.trim()
     if (!idempotencyKey || idempotencyKey.length === 0) {
-      return response.error(c, 'Idempotency-Key header is required', 400, 'RVS_VALIDATION_ERROR')
+      return response.error(c, 'Header Idempotency-Key wajib diisi', 400, 'RVS_VALIDATION_ERROR')
     }
     if (idempotencyKey.length > 255) {
-      return response.error(c, 'Idempotency-Key must be 1–255 characters', 400, 'RVS_VALIDATION_ERROR')
+      return response.error(c, 'Idempotency-Key harus 1–255 karakter', 400, 'RVS_VALIDATION_ERROR')
     }
 
     const saleDate = result.body.saleDate as string
     if (!SALE_DATE_REGEX.test(saleDate)) {
-      return response.error(c, 'saleDate must be in YYYY-MM-DD format', 400, 'RVS_VALIDATION_ERROR')
+      return response.error(c, 'Format tanggal harus YYYY-MM-DD', 400, 'RVS_VALIDATION_ERROR')
     }
 
     // saleMonth: provided or derived from saleDate (YYYY-MM-DD → YYYY-MM).
     let saleMonth = result.body.saleMonth as string | undefined
     if (saleMonth === undefined) saleMonth = saleDate.slice(0, 7)
     if (!SALE_MONTH_REGEX.test(saleMonth)) {
-      return response.error(c, 'saleMonth must be in YYYY-MM format', 400, 'RVS_VALIDATION_ERROR')
+      return response.error(c, 'Format bulan harus YYYY-MM', 400, 'RVS_VALIDATION_ERROR')
     }
 
     const rawItems = (body as { items?: unknown }).items
     if (!Array.isArray(rawItems) || rawItems.length === 0) {
-      return response.error(c, 'items must be a non-empty array', 400, 'RVS_VALIDATION_ERROR')
+      return response.error(c, 'Item harus diisi', 400, 'RVS_VALIDATION_ERROR')
     }
 
     const items: { voucherId: string; qty: number; unitPrice?: number }[] = []
@@ -101,7 +101,7 @@ export const resellerVoucherSaleController = {
       const res = normalizeItem(rawItems[i], `items[${i}]`)
       if (typeof res === 'string') return response.error(c, res, 400, 'RVS_VALIDATION_ERROR')
       if (seen.has(res.voucherId)) {
-        return response.error(c, `Duplicate voucher in items: ${res.voucherId}`, 400, 'RVS_VALIDATION_ERROR')
+        return response.error(c, 'Voucher sudah ada', 400, 'RVS_VALIDATION_ERROR')
       }
       seen.add(res.voucherId)
       items.push(res)
@@ -109,7 +109,7 @@ export const resellerVoucherSaleController = {
 
     for (const item of items) {
       if (!(await resellerVoucherSaleService._voucherExists(c.env.DB, item.voucherId))) {
-        return response.error(c, `Voucher not found: ${item.voucherId}`, 400, 'RVS_VOUCHER_NOT_FOUND')
+        return response.error(c, 'Voucher tidak ditemukan', 400, 'RVS_VOUCHER_NOT_FOUND')
       }
     }
 
@@ -117,7 +117,7 @@ export const resellerVoucherSaleController = {
     // numbers are unique by construction (atomic sequence).
     const saleNo = result.body.saleNo as string | undefined
     if (saleNo !== undefined && (await resellerVoucherSaleService._saleNoExists(c.env.DB, saleNo))) {
-      return response.error(c, 'saleNo already exists', 409, 'RVS_SALE_NO_EXISTS')
+      return response.error(c, 'Nomor penjualan sudah digunakan', 409, 'RVS_SALE_NO_EXISTS')
     }
 
     const userId = c.get('user').userId
@@ -131,7 +131,10 @@ export const resellerVoucherSaleController = {
       return c.json({ success: true, data: { id } }, replayed ? 200 : 201)
     } catch (err: any) {
       if (err?.code === 'CG_NO_CONFIG') {
-        return response.error(c, 'Sale code config not found (seed incremental_code_configs for "sale")', 500, 'CG_NO_CONFIG')
+        return response.error(c, 'Konfigurasi kode penjualan tidak ditemukan', 500, 'CG_NO_CONFIG')
+      }
+      if (err instanceof SaleError && err.code === 'SALE_INSUFFICIENT_STOCK') {
+        return response.error(c, err.message, 409, 'RVS_INSUFFICIENT_STOCK')
       }
       throw err
     }
@@ -156,14 +159,14 @@ export const resellerVoucherSaleController = {
     if (result.body.saleDate !== undefined) {
       const sd = result.body.saleDate as string
       if (!SALE_DATE_REGEX.test(sd)) {
-        return response.error(c, 'saleDate must be in YYYY-MM-DD format', 400, 'RVS_VALIDATION_ERROR')
+        return response.error(c, 'Format tanggal harus YYYY-MM-DD', 400, 'RVS_VALIDATION_ERROR')
       }
       fields.saleDate = sd
     }
     if (result.body.saleMonth !== undefined) {
       const sm = result.body.saleMonth as string
       if (!SALE_MONTH_REGEX.test(sm)) {
-        return response.error(c, 'saleMonth must be in YYYY-MM format', 400, 'RVS_VALIDATION_ERROR')
+        return response.error(c, 'Format bulan harus YYYY-MM', 400, 'RVS_VALIDATION_ERROR')
       }
       fields.saleMonth = sm
     }
@@ -174,7 +177,7 @@ export const resellerVoucherSaleController = {
     if ((body as { items?: unknown }).items !== undefined) {
       const rawItems = (body as { items?: unknown }).items
       if (!Array.isArray(rawItems) || rawItems.length === 0) {
-        return response.error(c, 'items must be a non-empty array', 400, 'RVS_VALIDATION_ERROR')
+        return response.error(c, 'Item harus diisi', 400, 'RVS_VALIDATION_ERROR')
       }
       items = []
       const seen = new Set<string>()
@@ -182,31 +185,31 @@ export const resellerVoucherSaleController = {
         const res = normalizeItem(rawItems[i], `items[${i}]`)
         if (typeof res === 'string') return response.error(c, res, 400, 'RVS_VALIDATION_ERROR')
         if (seen.has(res.voucherId)) {
-          return response.error(c, `Duplicate voucher in items: ${res.voucherId}`, 400, 'RVS_VALIDATION_ERROR')
+          return response.error(c, 'Voucher sudah ada', 400, 'RVS_VALIDATION_ERROR')
         }
         seen.add(res.voucherId)
         items.push(res)
       }
       for (const item of items) {
         if (!(await resellerVoucherSaleService._voucherExists(c.env.DB, item.voucherId))) {
-          return response.error(c, `Voucher not found: ${item.voucherId}`, 400, 'RVS_VOUCHER_NOT_FOUND')
+          return response.error(c, 'Voucher tidak ditemukan', 400, 'RVS_VOUCHER_NOT_FOUND')
         }
       }
     }
 
     if (Object.keys(fields).length === 0 && items === undefined) {
-      return response.error(c, 'No updatable fields provided', 400, 'RVS_VALIDATION_ERROR')
+      return response.error(c, 'Tidak ada data yang diubah', 400, 'RVS_VALIDATION_ERROR')
     }
 
     // FK checks for changed header values.
     if (fields.saleNo !== undefined && (await resellerVoucherSaleService._saleNoExists(c.env.DB, fields.saleNo, id))) {
-      return response.error(c, 'saleNo already exists', 409, 'RVS_SALE_NO_EXISTS')
+      return response.error(c, 'Nomor penjualan sudah digunakan', 409, 'RVS_SALE_NO_EXISTS')
     }
 
     const userId = c.get('user').userId
     const updated = await resellerVoucherSaleService.update(c.env.DB, id, { ...fields, items }, userId)
     if (!updated) {
-      return response.error(c, 'Sale not found or not in draft status', 409, 'RVS_INVALID_TRANSITION')
+      return response.error(c, 'Penjualan tidak ditemukan atau sudah diproses', 409, 'RVS_INVALID_TRANSITION')
     }
     return response.noContent(c, 204)
   },
@@ -218,7 +221,7 @@ export const resellerVoucherSaleController = {
     try {
       const completed = await resellerVoucherSaleService.complete(c.env.DB, id, userId)
       if (!completed) {
-        return response.error(c, 'Sale not found or not in draft status', 409, 'RVS_INVALID_TRANSITION')
+        return response.error(c, 'Penjualan tidak ditemukan atau sudah diproses', 409, 'RVS_INVALID_TRANSITION')
       }
       return response.noContent(c, 204)
     } catch (err: any) {
@@ -236,7 +239,7 @@ export const resellerVoucherSaleController = {
     const userId = c.get('user').userId
     const cancelled = await resellerVoucherSaleService.cancel(c.env.DB, id, userId)
     if (!cancelled) {
-      return response.error(c, 'Sale not found or not in draft status', 409, 'RVS_INVALID_TRANSITION')
+      return response.error(c, 'Penjualan tidak ditemukan atau sudah diproses', 409, 'RVS_INVALID_TRANSITION')
     }
     return response.noContent(c, 204)
   },
@@ -256,7 +259,7 @@ export const resellerVoucherSaleController = {
     const id = c.req.param('id') ?? ''
     const sale = await resellerVoucherSaleService._getFull(c.env.DB, id)
     if (!sale) {
-      return response.error(c, 'Voucher sale not found', 404, 'RVS_NOT_FOUND')
+      return response.error(c, 'Penjualan tidak ditemukan', 404, 'RVS_NOT_FOUND')
     }
     const logs = await resellerVoucherSaleService.getLogs(c.env.DB, id)
     return response.success(c, logs)

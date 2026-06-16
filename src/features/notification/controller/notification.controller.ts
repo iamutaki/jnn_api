@@ -74,7 +74,7 @@ export const notificationController = {
     const done = await notificationService.markRead(c.env.DB, userId, id)
 
     if (!done) {
-      return response.error(c, 'Notification not found', 404, 'NOTIF_NOT_FOUND')
+      return response.error(c, 'Notifikasi tidak ditemukan', 404, 'NOTIF_NOT_FOUND')
     }
 
     return response.noContent(c, 204)

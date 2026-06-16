@@ -30,7 +30,7 @@ export const districtController = {
     const item = await districtService.getById(c.env.DB, id)
 
     if (!item) {
-      return response.error(c, 'District not found', 404, 'DISTRICT_NOT_FOUND')
+      return response.error(c, 'Distrik tidak ditemukan', 404, 'DISTRICT_NOT_FOUND')
     }
 
     return response.success(c, item)
@@ -48,7 +48,7 @@ export const districtController = {
     // Check name uniqueness
     const nameExists = await districtService._nameExists(c.env.DB, result.body.name as string)
     if (nameExists) {
-      return response.error(c, 'Name already exists', 409, 'DISTRICT_NAME_EXISTS')
+      return response.error(c, 'Nama sudah digunakan', 409, 'DISTRICT_NAME_EXISTS')
     }
 
     await districtService.create(c.env.DB, result.body as any)
@@ -59,7 +59,7 @@ export const districtController = {
     const id = c.req.param('id') ?? ''
 
     if (id === districtService.GLOBAL_DISTRICT_ID) {
-      return response.error(c, 'Cannot edit Global district', 403, 'DISTRICT_PROTECTED')
+      return response.error(c, 'Tidak bisa mengubah distrik Global', 403, 'DISTRICT_PROTECTED')
     }
 
     const body = await safeJsonBody(c)
@@ -74,14 +74,14 @@ export const districtController = {
     if (result.body.name !== undefined) {
       const nameExists = await districtService._nameExists(c.env.DB, result.body.name as string, id)
       if (nameExists) {
-        return response.error(c, 'Name already exists', 409, 'DISTRICT_NAME_EXISTS')
+        return response.error(c, 'Nama sudah digunakan', 409, 'DISTRICT_NAME_EXISTS')
       }
     }
 
     const updated = await districtService.update(c.env.DB, id, result.body as any)
 
     if (!updated) {
-      return response.error(c, 'District not found', 404, 'DISTRICT_NOT_FOUND')
+      return response.error(c, 'Distrik tidak ditemukan', 404, 'DISTRICT_NOT_FOUND')
     }
 
     return response.noContent(c, 204)
@@ -91,17 +91,17 @@ export const districtController = {
     const id = c.req.param('id') ?? ''
 
     if (id === districtService.GLOBAL_DISTRICT_ID) {
-      return response.error(c, 'Cannot delete Global district', 403, 'DISTRICT_PROTECTED')
+      return response.error(c, 'Tidak bisa menghapus distrik Global', 403, 'DISTRICT_PROTECTED')
     }
 
     const existing = await districtService._getFull(c.env.DB, id)
     if (!existing) {
-      return response.error(c, 'District not found', 404, 'DISTRICT_NOT_FOUND')
+      return response.error(c, 'Distrik tidak ditemukan', 404, 'DISTRICT_NOT_FOUND')
     }
 
     const hasSubDistricts = await districtService._hasSubDistricts(c.env.DB, id)
     if (hasSubDistricts) {
-      return response.error(c, 'Cannot delete district with existing sub-districts. Remove all sub-districts first.', 409, 'DISTRICT_HAS_SUB_DISTRICTS')
+      return response.error(c, 'Hapus semua sub-distrik terlebih dahulu', 409, 'DISTRICT_HAS_SUB_DISTRICTS')
     }
 
     await districtService.remove(c.env.DB, id)

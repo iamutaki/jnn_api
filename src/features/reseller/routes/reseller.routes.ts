@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { authMiddleware } from '../../../middlewares/auth'
+import { authMiddleware, requireRoles } from '../../../middlewares/auth'
 import type { Env } from '../../../types'
 import { resellerController } from '../controller/reseller.controller'
 
@@ -16,10 +16,10 @@ resellerRoutes.use('/*', authMiddleware)
  * PATCH  /reseller/:id  → Update reseller (updates user + reseller)
  * DELETE /reseller/:id  → Delete reseller (soft delete reseller + user)
  */
-resellerRoutes.get('/', resellerController.list)
-resellerRoutes.get('/:id', resellerController.getOne)
-resellerRoutes.post('/', resellerController.create)
-resellerRoutes.patch('/:id', resellerController.update)
-resellerRoutes.delete('/:id', resellerController.remove)
+resellerRoutes.get('/', requireRoles('root', 'owner', 'supervisor'), resellerController.list)
+resellerRoutes.get('/:id', requireRoles('root', 'owner', 'supervisor'), resellerController.getOne)
+resellerRoutes.post('/', requireRoles('root', 'owner', 'supervisor'), resellerController.create)
+resellerRoutes.patch('/:id', requireRoles('root', 'owner', 'supervisor'), resellerController.update)
+resellerRoutes.delete('/:id', requireRoles('root', 'owner', 'supervisor'), resellerController.remove)
 
 export { resellerRoutes }

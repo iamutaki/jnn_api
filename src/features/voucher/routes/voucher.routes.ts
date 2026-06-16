@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { authMiddleware } from '../../../middlewares/auth'
+import { authMiddleware, requireRoles } from '../../../middlewares/auth'
 import type { Env } from '../../../types'
 import { voucherController } from '../controller/voucher.controller'
 
@@ -18,8 +18,8 @@ voucherRoutes.use('/*', authMiddleware)
  */
 voucherRoutes.get('/', voucherController.list)
 voucherRoutes.get('/:id', voucherController.getOne)
-voucherRoutes.post('/', voucherController.create)
-voucherRoutes.patch('/:id', voucherController.update)
-voucherRoutes.delete('/:id', voucherController.remove)
+voucherRoutes.post('/', requireRoles('root', 'owner', 'supervisor'), voucherController.create)
+voucherRoutes.patch('/:id', requireRoles('root', 'owner', 'supervisor'), voucherController.update)
+voucherRoutes.delete('/:id', requireRoles('root', 'owner', 'supervisor'), voucherController.remove)
 
 export { voucherRoutes }

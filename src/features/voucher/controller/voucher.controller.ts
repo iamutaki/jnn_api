@@ -28,7 +28,7 @@ export const voucherController = {
     const item = await voucherService.getById(c.env.DB, id)
 
     if (!item) {
-      return response.error(c, 'Voucher not found', 404, 'VOUCHER_NOT_FOUND')
+      return response.error(c, 'Voucher tidak ditemukan', 404, 'VOUCHER_NOT_FOUND')
     }
 
     return response.success(c, item)
@@ -44,12 +44,12 @@ export const voucherController = {
     }
 
     if (!Number.isInteger(result.body.price)) {
-      return response.error(c, 'Price must be an integer', 400, 'VOUCHER_VALIDATION_ERROR')
+      return response.error(c, 'Harga harus berupa angka bulat', 400, 'VOUCHER_VALIDATION_ERROR')
     }
 
     const nameExists = await voucherService._nameExists(c.env.DB, result.body.name as string)
     if (nameExists) {
-      return response.error(c, 'Name already exists', 409, 'VOUCHER_NAME_EXISTS')
+      return response.error(c, 'Nama sudah digunakan', 409, 'VOUCHER_NAME_EXISTS')
     }
 
     await voucherService.create(c.env.DB, result.body as any)
@@ -68,20 +68,20 @@ export const voucherController = {
     }
 
     if (result.body.price !== undefined && !Number.isInteger(result.body.price)) {
-      return response.error(c, 'Price must be an integer', 400, 'VOUCHER_VALIDATION_ERROR')
+      return response.error(c, 'Harga harus berupa angka bulat', 400, 'VOUCHER_VALIDATION_ERROR')
     }
 
     if (result.body.name !== undefined) {
       const nameExists = await voucherService._nameExists(c.env.DB, result.body.name as string, id)
       if (nameExists) {
-        return response.error(c, 'Name already exists', 409, 'VOUCHER_NAME_EXISTS')
+        return response.error(c, 'Nama sudah digunakan', 409, 'VOUCHER_NAME_EXISTS')
       }
     }
 
     const updated = await voucherService.update(c.env.DB, id, result.body as any)
 
     if (!updated) {
-      return response.error(c, 'Voucher not found', 404, 'VOUCHER_NOT_FOUND')
+      return response.error(c, 'Voucher tidak ditemukan', 404, 'VOUCHER_NOT_FOUND')
     }
 
     return response.noContent(c, 204)
@@ -92,12 +92,12 @@ export const voucherController = {
 
     const existing = await voucherService._getFull(c.env.DB, id)
     if (!existing) {
-      return response.error(c, 'Voucher not found', 404, 'VOUCHER_NOT_FOUND')
+      return response.error(c, 'Voucher tidak ditemukan', 404, 'VOUCHER_NOT_FOUND')
     }
 
     const linked = await voucherService._linkedToSubDistricts(c.env.DB, id)
     if (linked) {
-      return response.error(c, 'Cannot delete voucher that is assigned to sub-districts. Remove all assignments first.', 409, 'VOUCHER_HAS_SUB_DISTRICTS')
+      return response.error(c, 'Hapus semua penempatan voucher terlebih dahulu', 409, 'VOUCHER_HAS_SUB_DISTRICTS')
     }
 
     await voucherService.remove(c.env.DB, id)

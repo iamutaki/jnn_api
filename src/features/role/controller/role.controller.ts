@@ -26,7 +26,7 @@ export const roleController = {
     const item = await roleService.getById(c.env.DB, id)
 
     if (!item) {
-      return response.error(c, 'Role not found', 404, 'ROLE_NOT_FOUND')
+      return response.error(c, 'Role tidak ditemukan', 404, 'ROLE_NOT_FOUND')
     }
 
     return response.success(c, item)
@@ -43,7 +43,7 @@ export const roleController = {
 
     const nameExists = await roleService._nameExists(c.env.DB, result.body.name as string)
     if (nameExists) {
-      return response.error(c, 'Name already exists', 409, 'ROLE_NAME_EXISTS')
+      return response.error(c, 'Nama sudah digunakan', 409, 'ROLE_NAME_EXISTS')
     }
 
     await roleService.create(c.env.DB, result.body as any)
@@ -64,14 +64,14 @@ export const roleController = {
     if (result.body.name !== undefined) {
       const nameExists = await roleService._nameExists(c.env.DB, result.body.name as string, id)
       if (nameExists) {
-        return response.error(c, 'Name already exists', 409, 'ROLE_NAME_EXISTS')
+        return response.error(c, 'Nama sudah digunakan', 409, 'ROLE_NAME_EXISTS')
       }
     }
 
     const updated = await roleService.update(c.env.DB, id, result.body as any)
 
     if (!updated) {
-      return response.error(c, 'Role not found', 404, 'ROLE_NOT_FOUND')
+      return response.error(c, 'Role tidak ditemukan', 404, 'ROLE_NOT_FOUND')
     }
 
     return response.noContent(c, 204)
@@ -82,12 +82,12 @@ export const roleController = {
 
     const existing = await roleService._getFull(c.env.DB, id)
     if (!existing) {
-      return response.error(c, 'Role not found', 404, 'ROLE_NOT_FOUND')
+      return response.error(c, 'Role tidak ditemukan', 404, 'ROLE_NOT_FOUND')
     }
 
     const hasUsers = await roleService._hasUsers(c.env.DB, id)
     if (hasUsers) {
-      return response.error(c, 'Cannot delete role that is assigned to users. Remove all user assignments first.', 409, 'ROLE_HAS_USERS')
+      return response.error(c, 'Hapus semua pengguna dari role ini terlebih dahulu', 409, 'ROLE_HAS_USERS')
     }
 
     await roleService.remove(c.env.DB, id)

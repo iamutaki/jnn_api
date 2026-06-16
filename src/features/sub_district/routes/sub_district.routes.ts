@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { authMiddleware } from '../../../middlewares/auth'
+import { authMiddleware, requireRoles } from '../../../middlewares/auth'
 import type { Env } from '../../../types'
 import { subDistrictController } from '../controller/sub_district.controller'
 
@@ -19,8 +19,8 @@ subDistrictRoutes.use('/*', authMiddleware)
  */
 subDistrictRoutes.get('/', subDistrictController.list)
 subDistrictRoutes.get('/:id', subDistrictController.getOne)
-subDistrictRoutes.post('/', subDistrictController.create)
-subDistrictRoutes.patch('/:id', subDistrictController.update)
-subDistrictRoutes.delete('/:id', subDistrictController.remove)
+subDistrictRoutes.post('/', requireRoles('root', 'owner', 'supervisor'), subDistrictController.create)
+subDistrictRoutes.patch('/:id', requireRoles('root', 'owner', 'supervisor'), subDistrictController.update)
+subDistrictRoutes.delete('/:id', requireRoles('root', 'owner', 'supervisor'), subDistrictController.remove)
 
 export { subDistrictRoutes }

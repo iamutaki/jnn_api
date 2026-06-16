@@ -8,6 +8,9 @@ compatibility_flags = ["nodejs_compat"]
 API_NAME = "JNN API (Local)"
 API_VERSION = "0.0.1"
 ENVIRONMENT = "local"
+VOUCHER_KEY_VERSION = "1"
+FIREBASE_PROJECT_ID = "jnn-mobile-staging"
+FIREBASE_CLIENT_EMAIL = "firebase-adminsdk-fbsvc@jnn-mobile-staging.iam.gserviceaccount.com"
 
 # ─── D1 Database (default / local dev) ───────────────────────────────
 [[d1_databases]]
@@ -24,6 +27,9 @@ name = "jnn-api-staging"
 API_NAME = "JNN API (Staging)"
 API_VERSION = "0.0.1"
 ENVIRONMENT = "staging"
+VOUCHER_KEY_VERSION = "1"
+FIREBASE_PROJECT_ID = "jnn-mobile-staging"
+FIREBASE_CLIENT_EMAIL = "firebase-adminsdk-fbsvc@jnn-mobile-staging.iam.gserviceaccount.com"
 
 [[env.staging.d1_databases]]
 binding = "DB"
@@ -39,6 +45,9 @@ name = "jnn-api"
 API_NAME = "JNN API"
 API_VERSION = "0.0.1"
 ENVIRONMENT = "production"
+VOUCHER_KEY_VERSION = "1"
+FIREBASE_PROJECT_ID = "jnn-mobile"
+FIREBASE_CLIENT_EMAIL = "firebase-adminsdk-fbsvc@jnn-mobile.iam.gserviceaccount.com"
 
 [[env.production.d1_databases]]
 binding = "DB"

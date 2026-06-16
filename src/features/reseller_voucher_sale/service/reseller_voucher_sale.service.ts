@@ -7,6 +7,7 @@ import type {
   ResellerVoucherSaleListItem,
   ResellerVoucherSaleDetail,
   SaleItemResponse,
+  SaleViewer,
   CreateResellerVoucherSaleRequest,
   UpdateResellerVoucherSaleRequest,
   ResellerVoucherSaleLog,
@@ -29,6 +30,7 @@ export class SaleError extends Error {
 export const resellerVoucherSaleService = {
   getAll: async (
     db: D1Database,
+    viewer: SaleViewer,
     cursor?: string,
     limit = 20,
   ): Promise<{ items: ResellerVoucherSaleListItem[]; nextCursor: string | null }> => {
@@ -41,6 +43,11 @@ export const resellerVoucherSaleService = {
                  FROM reseller_voucher_sales
                 WHERE deleted_at IS NULL`
     const bind: unknown[] = []
+
+    if (!viewer.viewAll) {
+      sql += ' AND reseller_id = ?'
+      bind.push(viewer.resellerId)
+    }
 
     if (cursor) {
       sql += ' AND id < ?'
@@ -76,10 +83,11 @@ export const resellerVoucherSaleService = {
     db: D1Database,
     env: Env['Bindings'],
     id: string,
-    currentUserId: string,
+    viewer: SaleViewer,
   ): Promise<ResellerVoucherSaleDetail | null> => {
     const sale = await resellerVoucherSaleService._getFull(db, id)
     if (!sale) return null
+    if (!viewer.viewAll && sale.reseller_id !== viewer.resellerId) return null
 
     const items = await db
       .prepare(
@@ -121,7 +129,7 @@ export const resellerVoucherSaleService = {
             id: c.id,
             status: c.status,
             code:
-              c.sold_by_user_id === currentUserId
+              c.sold_by_user_id === viewer.userId
                 ? await decryptCode(c.encrypted_code, c.encryption_iv, c.encryption_tag, c.encryption_key_version, env)
                 : '******',
           })),
@@ -171,6 +179,24 @@ export const resellerVoucherSaleService = {
   _resolveResellerId: async (db: D1Database, userId: string): Promise<string> => {
     const isReseller = await resellerVoucherSaleService._resellerExists(db, userId)
     return isReseller ? userId : SYSTEM_RESELLER_ID
+  },
+
+  // Resolve viewer authorization scope. Users with oversight roles (root / owner / supervisor)
+  // see all sales (viewAll = true). Everyone else is scoped to their own reseller id only.
+  _resolveViewer: async (db: D1Database, userId: string): Promise<SaleViewer> => {
+    const roles = await db
+      .prepare(
+        `SELECT r.name
+           FROM user_roles ur
+           JOIN roles r ON r.id = ur.role_id
+          WHERE ur.user_id = ?`,
+      )
+      .bind(userId)
+      .all<{ name: string }>()
+
+    const viewAll = roles.results.some((r) => r.name === 'root' || r.name === 'owner' || r.name === 'supervisor')
+
+    return { userId, resellerId: userId, viewAll }
   },
 
   _voucherExists: async (db: D1Database, id: string): Promise<boolean> => {

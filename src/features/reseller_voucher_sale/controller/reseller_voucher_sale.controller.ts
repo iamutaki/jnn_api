@@ -44,14 +44,15 @@ export const resellerVoucherSaleController = {
   list: async (c: Context<Env>) => {
     const cursor = c.req.query('cursor') || undefined
     const limit = Math.min(100, Math.max(1, parseInt(c.req.query('limit') ?? '20', 10)))
-    const { items, nextCursor } = await resellerVoucherSaleService.getAll(c.env.DB, cursor, limit)
+    const viewer = await resellerVoucherSaleService._resolveViewer(c.env.DB, c.get('user').userId)
+    const { items, nextCursor } = await resellerVoucherSaleService.getAll(c.env.DB, viewer, cursor, limit)
     return c.json({ success: true, data: items, meta: { nextCursor } })
   },
 
   getOne: async (c: Context<Env>) => {
     const id = c.req.param('id') ?? ''
-    const userId = c.get('user').userId
-    const item = await resellerVoucherSaleService.getById(c.env.DB, c.env, id, userId)
+    const viewer = await resellerVoucherSaleService._resolveViewer(c.env.DB, c.get('user').userId)
+    const item = await resellerVoucherSaleService.getById(c.env.DB, c.env, id, viewer)
     if (!item) {
       return response.error(c, 'Voucher sale not found', 404, 'RVS_NOT_FOUND')
     }

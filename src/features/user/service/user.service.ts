@@ -3,6 +3,7 @@ import { hashPassword } from '../../../lib/password'
 import type { User, SafeUser, SafeUserListItem, CreateUserRequest, UpdateUserRequest } from '../user.types'
 
 export const userService = {
+  SYSTEM_USER_ID: '01KT0SYSTEM000000000000000',
   getAll: async (db: D1Database): Promise<SafeUserListItem[]> => {
     const result = await db.prepare(`
       SELECT u.id, u.username, u.name, u.avatar, GROUP_CONCAT(r.name, ',') as role_names

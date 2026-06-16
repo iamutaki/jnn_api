@@ -276,33 +276,50 @@ export const digitalVoucherService = {
     return { id: prepared.id, importId }
   },
 
-  // Bulk: all-or-nothing. Parallel encrypt, pre-check conflicts (external + internal),
-  // single batched INSERT transaction. Throws {code:'DV_CODE_EXISTS'} on any conflict.
+  // Bulk: partial import. Skips internal duplicates (same hash+sub_district within batch)
+  // and external conflicts (already in DB), inserts the rest.
   createBulk: async (
     db: D1Database,
     env: Env['Bindings'],
     items: CreateDigitalVoucherRequest[],
     userId: string,
-  ): Promise<{ count: number; importIds: string[] }> => {
+  ): Promise<{ count: number; importIds: string[]; skipped: number }> => {
     const prepared = await Promise.all(items.map((it) => digitalVoucherService._prepare(env, it)))
 
-    // Internal duplicates within this batch.
+    // Filter internal duplicates — keep first occurrence of each (hash, sub_district_id).
     const seen = new Set<string>()
+    const unique: PreparedItem[] = []
     for (const p of prepared) {
-      if (seen.has(p.hash)) throw Object.assign(new Error('DUPLICATE_CODE_IN_BATCH'), { code: 'DV_CODE_EXISTS' })
-      seen.add(p.hash)
+      const key = `${p.hash}:${p.subDistrictId ?? ''}`
+      if (!seen.has(key)) {
+        seen.add(key)
+        unique.push(p)
+      }
     }
+    const internalSkipped = prepared.length - unique.length
 
     // External conflicts — check per (hash, sub_district_id) pair.
     const conflicting = await digitalVoucherService._conflictingPairs(
       db,
-      prepared.map((p) => ({ hash: p.hash, subDistrictId: p.subDistrictId })),
+      unique.map((p) => ({ hash: p.hash, subDistrictId: p.subDistrictId })),
     )
-    if (conflicting.size > 0) throw Object.assign(new Error('CODE_EXISTS'), { code: 'DV_CODE_EXISTS' })
+
+    const nonConflicting: PreparedItem[] = []
+    for (const p of unique) {
+      const key = `${p.hash}:${p.subDistrictId ?? ''}`
+      if (!conflicting.has(key)) {
+        nonConflicting.push(p)
+      }
+    }
+    const externalSkipped = unique.length - nonConflicting.length
+
+    if (nonConflicting.length === 0) {
+      return { count: 0, importIds: [], skipped: internalSkipped + externalSkipped }
+    }
 
     // Group by voucherId — each group gets its own import record.
     const groups = new Map<string, PreparedItem[]>()
-    for (const p of prepared) {
+    for (const p of nonConflicting) {
       const arr = groups.get(p.voucherId) ?? []
       arr.push(p)
       groups.set(p.voucherId, arr)
@@ -325,7 +342,7 @@ export const digitalVoucherService = {
     }
 
     await db.batch(stmts)
-    return { count: prepared.length, importIds }
+    return { count: nonConflicting.length, importIds, skipped: internalSkipped + externalSkipped }
   },
 
   remove: async (db: D1Database, id: string, userId: string): Promise<boolean> => {

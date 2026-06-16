@@ -96,14 +96,9 @@ export const digitalVoucherController = {
     }
 
     const checked: { voucherId: string; subDistrictId?: string | null; code: string }[] = []
-    const seenCodes = new Set<string>()
     for (let i = 0; i < items.length; i++) {
       const res = validateItem(items[i], `items[${i}]`)
       if (typeof res === 'string') return response.error(c, res, 400, 'DV_VALIDATION_ERROR')
-      if (seenCodes.has(res.code)) {
-        return response.error(c, `Duplicate code in batch: ${res.code}`, 400, 'DV_VALIDATION_ERROR')
-      }
-      seenCodes.add(res.code)
       checked.push(res)
     }
 
@@ -121,16 +116,9 @@ export const digitalVoucherController = {
       }
     }
 
-    try {
-      const userId = c.get('user').userId
-      const result = await digitalVoucherService.createBulk(c.env.DB, c.env, checked, userId)
-      return response.success(c, { created: result.count, importIds: result.importIds })
-    } catch (err: any) {
-      if (err?.code === 'DV_CODE_EXISTS') {
-        return response.error(c, 'One or more codes already exist (available) — no rows inserted', 409, 'DV_CODE_EXISTS')
-      }
-      throw err
-    }
+    const userId = c.get('user').userId
+    const result = await digitalVoucherService.createBulk(c.env.DB, c.env, checked, userId)
+    return response.success(c, { created: result.count, skipped: result.skipped, importIds: result.importIds })
   },
 
   remove: async (c: Context<Env>) => {

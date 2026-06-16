@@ -64,6 +64,10 @@ export const subDistrictController = {
   update: async (c: Context<Env>) => {
     const id = c.req.param('id') ?? ''
 
+    if (id === subDistrictService.GLOBAL_SUB_DISTRICT_ID) {
+      return response.error(c, 'Cannot edit Global sub-district', 403, 'SUB_DISTRICT_PROTECTED')
+    }
+
     const body = await safeJsonBody(c)
     if (body instanceof Response) return body
 
@@ -97,6 +101,11 @@ export const subDistrictController = {
 
   remove: async (c: Context<Env>) => {
     const id = c.req.param('id') ?? ''
+
+    if (id === subDistrictService.GLOBAL_SUB_DISTRICT_ID) {
+      return response.error(c, 'Cannot delete Global sub-district', 403, 'SUB_DISTRICT_PROTECTED')
+    }
+
     const deleted = await subDistrictService.remove(c.env.DB, id)
 
     if (!deleted) {

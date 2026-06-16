@@ -180,10 +180,31 @@ export const resellerVoucherSaleService = {
     return row !== null
   },
 
+  // Active sale carrying this Idempotency-Key (if any) → replay target.
+  _getByIdempotencyKey: async (db: D1Database, key: string): Promise<{ id: string } | null> => {
+    return db
+      .prepare('SELECT id FROM reseller_voucher_sales WHERE idempotency_key = ? AND deleted_at IS NULL')
+      .bind(key)
+      .first<{ id: string }>()
+  },
+
   // Create draft sale + items + 'created' log in one atomic batch. saleNo auto-
   // generated unless provided (retroactive). saleMonth derived from saleDate if absent.
   // unit_price defaults to vouchers.price; total_amount computed server-side.
-  create: async (db: D1Database, body: CreateResellerVoucherSaleRequest, userId: string): Promise<string> => {
+  // Idempotency-Key is required: a replay returns the existing sale id instead of
+  // minting a new ULID + sale_no. (idx_rvs_idempotency_key is the backstop.)
+  create: async (
+    db: D1Database,
+    body: CreateResellerVoucherSaleRequest,
+    userId: string,
+    idempotencyKey: string,
+  ): Promise<{ id: string; replayed: boolean }> => {
+    // Idempotency pre-check: a stable client-supplied key (Idempotency-Key header) dedupes
+    // retries. If an active sale already carries this key, replay it — return its id instead
+    // of minting a new ULID + sale_no. (idx_rvs_idempotency_key is the backstop.)
+    const existing = await resellerVoucherSaleService._getByIdempotencyKey(db, idempotencyKey)
+    if (existing) return { id: existing.id, replayed: true }
+
     const id = ulid()
     const saleNo = body.saleNo ?? (await codeGeneratorService.generate(db, 'sale', userId))
     const saleMonth = body.saleMonth ?? body.saleDate.slice(0, 7)
@@ -204,10 +225,10 @@ export const resellerVoucherSaleService = {
         .prepare(
           `INSERT INTO reseller_voucher_sales
             (id, reseller_id, sale_no, sale_date, sale_month, total_qty, total_amount, status,
-             created_by_user_id, updated_by_user_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?)`,
+             idempotency_key, created_by_user_id, updated_by_user_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?)`,
         )
-        .bind(id, resellerId, saleNo, body.saleDate, saleMonth, totalQty, totalAmount, userId, userId),
+        .bind(id, resellerId, saleNo, body.saleDate, saleMonth, totalQty, totalAmount, idempotencyKey, userId, userId),
       db
         .prepare(
           `INSERT INTO reseller_voucher_sale_logs
@@ -229,8 +250,17 @@ export const resellerVoucherSaleService = {
       )
     }
 
-    await db.batch(stmts)
-    return saleNo
+    try {
+      await db.batch(stmts)
+    } catch (err) {
+      // Concurrent duplicate raced past the pre-check (two retries, both SELECT before either
+      // INSERT). idx_rvs_idempotency_key rejects the loser; if a sale now exists for this key,
+      // treat it as a replay instead of surfacing a 500.
+      const existing = await resellerVoucherSaleService._getByIdempotencyKey(db, idempotencyKey)
+      if (existing) return { id: existing.id, replayed: true }
+      throw err
+    }
+    return { id, replayed: false }
   },
 
   // PATCH update — DRAFT only. Header fields partial AND/OR items full-replace, in ONE
@@ -338,28 +368,59 @@ export const resellerVoucherSaleService = {
     return true
   },
 
-  // Reverse every claim made for a sale: flip the bound codes back to 'available' and
-  // clear the sold_* fields. Used by complete() on partial-fill failure and as a safety net.
-  _releaseClaimed: async (db: D1Database, saleId: string, userId?: string): Promise<void> => {
-    await db
-      .prepare(
-        `UPDATE digital_vouchers
-            SET status = 'available', sold_to_reseller_id = NULL, sold_sale_id = NULL,
-                sold_at = NULL, sold_by_user_id = NULL, updated_at = ${ISO}, updated_by_user_id = ?
-          WHERE sold_sale_id = ?`,
-      )
-      .bind(userId ?? null, saleId)
-      .run()
+  // Undo a complete() in flight: release every code this sale bound AND flip it back to
+  // draft, so a failed complete() leaves the sale exactly as it started (no stranded 'sold'
+  // codes, status not stuck on 'completed'). Used for both partial-fill rollback (Phase 1)
+  // and final-commit failure (Phase 2). Also reverts the atomic status flip from Phase 0.
+  _revertCompletion: async (db: D1Database, saleId: string, userId: string): Promise<void> => {
+    await db.batch([
+      db
+        .prepare(
+          `UPDATE digital_vouchers
+              SET status = 'available', sold_to_reseller_id = NULL, sold_sale_id = NULL,
+                  sold_at = NULL, sold_by_user_id = NULL, updated_at = ${ISO}, updated_by_user_id = ?
+            WHERE sold_sale_id = ?`,
+        )
+        .bind(userId, saleId),
+      db
+        .prepare(
+          `UPDATE reseller_voucher_sales
+              SET status = 'draft', completed_at = NULL, updated_at = ${ISO}, updated_by_user_id = ?
+            WHERE id = ?`,
+        )
+        .bind(userId, saleId),
+    ])
   },
 
   // draft → completed. Atomically allocates codes from the digital_vouchers pool per
   // sale item, sub-district scoped (reseller's region first, NULL/unscoped fallback;
   // other regions excluded). All-or-nothing: if any item can't fill its qty, every
-  // claim is released and SALE_INSUFFICIENT_STOCK is thrown (sale stays draft).
+  // claim is released and SALE_INSUFFICIENT_STOCK is thrown (sale reverts to draft).
+  //
+  // Concurrency: the status transition is an atomic check-and-set (draft→completed via
+  // WHERE status='draft') done BEFORE allocation (Phase 0), so two concurrent completes of
+  // the same sale can't both proceed — the loser's UPDATE changes 0 rows and bails. Any
+  // failure after Phase 0 (partial fill or commit error) is rolled back by _revertCompletion,
+  // which releases claimed codes and returns the sale to draft.
   complete: async (db: D1Database, id: string, userId: string): Promise<boolean> => {
-    const sale = await resellerVoucherSaleService._getFull(db, id)
-    if (!sale || sale.status !== 'draft') return false
+    // --- Phase 0: atomic check-and-set draft → completed ---
+    // Guards against concurrent completes and completes of a non-draft sale in one statement.
+    const flipped = await db
+      .prepare(
+        `UPDATE reseller_voucher_sales
+            SET status = 'completed', completed_at = ${ISO}, updated_at = ${ISO}, updated_by_user_id = ?
+          WHERE id = ? AND status = 'draft'`,
+      )
+      .bind(userId, id)
+      .run()
+    if (!flipped.meta.changes || flipped.meta.changes < 1) return false
 
+    const sale = await resellerVoucherSaleService._getFull(db, id)
+    if (!sale) {
+      // Practically unreachable (the flip just touched this id), but stay safe.
+      await resellerVoucherSaleService._revertCompletion(db, id, userId)
+      return false
+    }
     const subDistrictId = await resellerVoucherSaleService._getResellerSubDistrict(db, sale.reseller_id)
     // NULL sub_district (the System fallback reseller) → allocate pool-wide; else scoped to
     // the reseller's region. (Real resellers always have a sub_district; only System is NULL.)
@@ -411,14 +472,14 @@ export const resellerVoucherSaleService = {
             .all<{ id: string }>()
 
       if (claim.results.length < item.qty) {
-        // Partial fill → release everything claimed so far (all-or-nothing).
-        await resellerVoucherSaleService._releaseClaimed(db, id, userId)
+        // Partial fill → full rollback (release claims + revert status to draft).
+        await resellerVoucherSaleService._revertCompletion(db, id, userId)
         throw new SaleError('SALE_INSUFFICIENT_STOCK', `Insufficient available codes for voucher ${item.voucher_id}`)
       }
       claimed.push({ saleItemId: item.id, dvIds: claim.results.map((c) => c.id) })
     }
 
-    // --- Phase 2: commit links + sale status + log (single atomic batch) ---
+    // --- Phase 2: commit links + log (single atomic batch) ---
     const stmts: D1PreparedStatement[] = []
     for (const c of claimed) {
       for (const dvId of c.dvIds) {
@@ -435,13 +496,6 @@ export const resellerVoucherSaleService = {
     stmts.push(
       db
         .prepare(
-          `UPDATE reseller_voucher_sales
-             SET status = 'completed', completed_at = ${ISO}, updated_at = ${ISO}, updated_by_user_id = ?
-           WHERE id = ?`,
-        )
-        .bind(userId, id),
-      db
-        .prepare(
           `INSERT INTO reseller_voucher_sale_logs (id, sale_id, action, old_status, new_status, changed_by_user_id, note)
            VALUES (?, ?, 'completed', 'draft', 'completed', ?, NULL)`,
         )
@@ -451,66 +505,41 @@ export const resellerVoucherSaleService = {
     try {
       await db.batch(stmts)
     } catch (err) {
-      // Phase 2 failed after phase 1 already committed the claims — release them so no
-      // codes are left stranded as sold-to-an-incomplete-sale.
-      await resellerVoucherSaleService._releaseClaimed(db, id, userId)
+      // Phase 2 failed after Phase 0 flipped status and Phase 1 claimed codes — roll the
+      // whole thing back so no codes are stranded and the sale is draft again.
+      await resellerVoucherSaleService._revertCompletion(db, id, userId)
       throw err
     }
     return true
   },
 
-  // draft|completed → cancelled. From draft: just status + log (no codes allocated).
-  // From completed: reverse-allocate (release bound codes, soft-delete link rows) + log.
-  // No-op (returns false) from cancelled or if the sale is missing.
+  // draft → cancelled. Draft sales carry no allocated codes, so cancel is just an atomic
+  // status flip + log. Non-draft sales (completed/cancelled) are terminal and CANNOT be
+  // cancelled — completed→cancelled (reverse-allocation) is intentionally not supported.
+  // The WHERE status='draft' guard makes this idempotent against concurrent cancels.
   cancel: async (db: D1Database, id: string, userId: string): Promise<boolean> => {
-    const sale = await resellerVoucherSaleService._getFull(db, id)
-    if (!sale || sale.status === 'cancelled') return false
-
-    const oldStatus = sale.status // 'draft' | 'completed'
-    const stmts: D1PreparedStatement[] = []
-
-    if (oldStatus === 'completed') {
-      stmts.push(
-        db
-          .prepare(
-            `UPDATE digital_vouchers
-                SET status = 'available', sold_to_reseller_id = NULL, sold_sale_id = NULL, sold_at = NULL, sold_by_user_id = NULL,
-                    updated_at = ${ISO}, updated_by_user_id = ?
-              WHERE sold_sale_id = ?`,
-          )
-          .bind(userId, id),
-        db
-          .prepare(
-            `UPDATE reseller_voucher_sale_item_digital_vouchers
-                SET deleted_at = ${ISO}, deleted_by_user_id = ?
-              WHERE sale_item_id IN (SELECT id FROM reseller_voucher_sale_items WHERE sale_id = ?)`,
-          )
-          .bind(userId, id),
+    const result = await db
+      .prepare(
+        `UPDATE reseller_voucher_sales
+            SET status = 'cancelled', cancelled_at = ${ISO}, updated_at = ${ISO}, updated_by_user_id = ?
+          WHERE id = ? AND status = 'draft'`,
       )
-    }
+      .bind(userId, id)
+      .run()
+    if (!result.meta.changes || result.meta.changes < 1) return false
 
-    stmts.push(
-      db
-        .prepare(
-          `UPDATE reseller_voucher_sales
-             SET status = 'cancelled', cancelled_at = ${ISO}, updated_at = ${ISO}, updated_by_user_id = ?
-           WHERE id = ? AND status != 'cancelled'`,
-        )
-        .bind(userId, id),
-      db
-        .prepare(
-          `INSERT INTO reseller_voucher_sale_logs (id, sale_id, action, old_status, new_status, changed_by_user_id, note)
-           VALUES (?, ?, 'cancelled', ?, 'cancelled', ?, NULL)`,
-        )
-        .bind(ulid(), id, oldStatus, userId),
-    )
-
-    await db.batch(stmts)
+    await db
+      .prepare(
+        `INSERT INTO reseller_voucher_sale_logs (id, sale_id, action, old_status, new_status, changed_by_user_id, note)
+         VALUES (?, ?, 'cancelled', 'draft', 'cancelled', ?, NULL)`,
+      )
+      .bind(ulid(), id, userId)
+      .run()
     return true
   },
 
-  // Soft-delete cascade (DRAFT only): sale + its items. Completed sales carry allocated
-  // codes and must be cancelled (which releases them) rather than deleted.
+  // Soft-delete cascade (DRAFT only): sale + its items. Non-draft sales are terminal
+  // (completed/cancelled) and cannot be deleted.
   remove: async (db: D1Database, id: string, userId: string): Promise<boolean> => {
     const sale = await resellerVoucherSaleService._getFull(db, id)
     if (!sale || sale.status !== 'draft') return false

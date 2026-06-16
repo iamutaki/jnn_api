@@ -2,6 +2,7 @@ import { ulid } from '../../../lib/ulid'
 import type { SubDistrict, CreateSubDistrictRequest, UpdateSubDistrictRequest } from '../sub_district.types'
 
 export const subDistrictService = {
+  GLOBAL_SUB_DISTRICT_ID: '01KV7227XXH72FYPKM3Q8RHQ49',
   getAll: async (db: D1Database) => {
     const result = await db.prepare(`
       SELECT

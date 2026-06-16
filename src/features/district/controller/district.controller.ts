@@ -58,6 +58,10 @@ export const districtController = {
   update: async (c: Context<Env>) => {
     const id = c.req.param('id') ?? ''
 
+    if (id === districtService.GLOBAL_DISTRICT_ID) {
+      return response.error(c, 'Cannot edit Global district', 403, 'DISTRICT_PROTECTED')
+    }
+
     const body = await safeJsonBody(c)
     if (body instanceof Response) return body
 
@@ -85,6 +89,10 @@ export const districtController = {
 
   remove: async (c: Context<Env>) => {
     const id = c.req.param('id') ?? ''
+
+    if (id === districtService.GLOBAL_DISTRICT_ID) {
+      return response.error(c, 'Cannot delete Global district', 403, 'DISTRICT_PROTECTED')
+    }
 
     const existing = await districtService._getFull(c.env.DB, id)
     if (!existing) {

@@ -105,6 +105,10 @@ export const userController = {
   update: async (c: Context<Env>) => {
     const id = c.req.param('id') ?? ''
 
+    if (id === userService.SYSTEM_USER_ID) {
+      return response.error(c, 'Cannot edit System user', 403, 'USER_PROTECTED')
+    }
+
     const body = await safeJsonBody(c)
     if (body instanceof Response) return body
 
@@ -144,6 +148,11 @@ export const userController = {
 
   remove: async (c: Context<Env>) => {
     const id = c.req.param('id') ?? ''
+
+    if (id === userService.SYSTEM_USER_ID) {
+      return response.error(c, 'Cannot delete System user', 403, 'USER_PROTECTED')
+    }
+
     const deleted = await userService.remove(c.env.DB, id)
 
     if (!deleted) {

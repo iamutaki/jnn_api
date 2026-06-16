@@ -15,11 +15,13 @@ resellerVoucherSaleRoutes.use('/*', authMiddleware)
  * POST   /                          → Create sale (draft)  { resellerId, saleDate, saleMonth?, saleNo?, items[{voucherId, qty, unitPrice?}] }
  * PATCH  /:id                       → Edit (draft only) { resellerId?, saleDate?, saleMonth?, saleNo?, items? } — atomic single txn
  * POST   /:id/complete              → draft → completed (allocates codes from the digital_vouchers pool, sub-district scoped)
- * POST   /:id/cancel                → draft|completed → cancelled (releases allocated codes if completed)
+ * POST   /:id/cancel                → draft → cancelled only (atomic; non-draft rejected)
  * DELETE /:id                        → Soft delete (draft only; cascade to items)
  * GET    /:id/logs                  → Audit trail (status transitions)
  *
- * State machine: draft → {completed | cancelled}; completed → cancelled (reverse-allocates codes).
+ * State machine: draft → {completed | cancelled}. Both terminal — completed cannot be
+ * cancelled, cancelled cannot be completed. Both transitions are atomic check-and-set
+ * (WHERE status='draft') so concurrent double-complete / double-cancel cannot both succeed.
  * saleNo auto-generated from incremental_code_configs ('sale') when omitted.
  * item.unitPrice defaults to vouchers.price when omitted; total_amount is computed server-side.
  */

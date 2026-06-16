@@ -13,6 +13,7 @@ import type { District, CreateDistrictRequest, UpdateDistrictRequest } from '../
  *   db.prepare(sql).bind(...params).all<T>()     → SELECT multiple rows
  */
 export const districtService = {
+  GLOBAL_DISTRICT_ID: '01KV7226A7YVVE93Y36S2TC9XF',
   getAll: async (db: D1Database): Promise<Pick<District, 'id' | 'name'>[]> => {
     const result = await db.prepare('SELECT id, name FROM districts ORDER BY created_at DESC').all<Pick<District, 'id' | 'name'>>()
     return result.results

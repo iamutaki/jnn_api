@@ -67,6 +67,15 @@ export const resellerVoucherSaleController = {
       return response.error(c, result.errors.join(', '), 400, 'RVS_VALIDATION_ERROR')
     }
 
+    // Idempotency-Key (required, Stripe-style): prevents duplicate creates on retry.
+    const idempotencyKey = c.req.header('Idempotency-Key')?.trim()
+    if (!idempotencyKey || idempotencyKey.length === 0) {
+      return response.error(c, 'Idempotency-Key header is required', 400, 'RVS_VALIDATION_ERROR')
+    }
+    if (idempotencyKey.length > 255) {
+      return response.error(c, 'Idempotency-Key must be 1–255 characters', 400, 'RVS_VALIDATION_ERROR')
+    }
+
     const saleDate = result.body.saleDate as string
     if (!SALE_DATE_REGEX.test(saleDate)) {
       return response.error(c, 'saleDate must be in YYYY-MM-DD format', 400, 'RVS_VALIDATION_ERROR')
@@ -111,12 +120,13 @@ export const resellerVoucherSaleController = {
 
     const userId = c.get('user').userId
     try {
-      const generatedNo = await resellerVoucherSaleService.create(
+      const { id, replayed } = await resellerVoucherSaleService.create(
         c.env.DB,
         { saleDate, saleMonth, saleNo, items },
         userId,
+        idempotencyKey,
       )
-      return response.success(c, { saleNo: generatedNo })
+      return c.json({ success: true, data: { id } }, replayed ? 200 : 201)
     } catch (err: any) {
       if (err?.code === 'CG_NO_CONFIG') {
         return response.error(c, 'Sale code config not found (seed incremental_code_configs for "sale")', 500, 'CG_NO_CONFIG')
@@ -217,13 +227,14 @@ export const resellerVoucherSaleController = {
     }
   },
 
-  // POST /:id/cancel — draft|completed → cancelled (releases allocated codes if completed).
+  // POST /:id/cancel — draft → cancelled only. Non-draft sales are terminal and cannot be
+  // cancelled (no completed→cancelled reverse-allocation).
   cancel: async (c: Context<Env>) => {
     const id = c.req.param('id') ?? ''
     const userId = c.get('user').userId
     const cancelled = await resellerVoucherSaleService.cancel(c.env.DB, id, userId)
     if (!cancelled) {
-      return response.error(c, 'Sale not found or already cancelled', 409, 'RVS_INVALID_TRANSITION')
+      return response.error(c, 'Sale not found or not in draft status', 409, 'RVS_INVALID_TRANSITION')
     }
     return response.noContent(c, 204)
   },
